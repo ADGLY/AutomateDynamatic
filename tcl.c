@@ -14,7 +14,9 @@ void create_AXI_script(hdl_source_t* hdl_source) {
 
     FILE* tcl_script = fopen("generate_axi_ip.tcl", "w");
     if(tcl_script == NULL) {
+        fclose(tcl_script);
         fprintf(stderr, "The program did not manage to create the script !\n");
+        return;
     }
     fprintf(tcl_script, "create_peripheral user.org user %s 1.0 -dir ip_repo\n", ip->name);
     fprintf(tcl_script, "add_peripheral_interface %s -interface_mode slave -axi_type lite [ipx::find_open_core user.org:user:%s:1.0]\n",
@@ -28,4 +30,5 @@ void create_AXI_script(hdl_source_t* hdl_source) {
     fprintf(tcl_script, "ipx::edit_ip_in_project -upgrade true -name edit_%s_v1_0 -directory %s %s/%s_1.0/component.xml\n",
     ip->name, ip->path, ip->path, ip->name);
     fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
+    fclose(tcl_script);
 }
