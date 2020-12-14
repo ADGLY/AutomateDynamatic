@@ -21,6 +21,7 @@ char* get_source(char* path) {
         return NULL;
     }
     fread(source, sizeof(char), file_size, hdl_source);
+    fclose(hdl_source);
     return source;
 }
 
