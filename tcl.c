@@ -3,10 +3,13 @@
 #include <stdio.h>
 #include <string.h>
 #include "tcl.h"
-#include "parser.h"
+#include "hdl_data.h"
 
 void create_AXI_script(hdl_source_t* hdl_source) {
     axi_ip_t* ip = malloc(sizeof(axi_ip_t));
+    if(ip == NULL) {
+        fprintf(stderr, "Failed to allocate memory for axi_ip !\n");
+    }
     strcpy(ip->name, "axi_ip_dynamatic_test");
     strcpy(ip->path, "ip_repo");
     strcpy(ip->interface_name, "CSR");

@@ -2,23 +2,25 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "parser.h"
+#include "hdl_data.h"
 
 
-void get_entity_name(hdl_source_t* hdl_source, const char* source) {
+void get_entity_name(hdl_source_t* hdl_source) {
     regex_t reg;
     regmatch_t match[1];
     int err = regcomp(&reg, "entity[ ]\\w+[ ]is", REG_EXTENDED);
     if(err != 0) {
         fprintf(stderr, "Reg compile error !\n");
+        return;
     }
-    err = regexec(&reg, source, 1, (regmatch_t*)match, 0);
+    err = regexec(&reg, hdl_source->source, 1, (regmatch_t*)match, 0);
     if(err != 0) {
         fprintf(stderr, "Reg exec error !\n");
+        return;
     }
 
     #define NAME_START_OFF 7
-    char* str_match = strndup((const char*)(source + match[0].rm_so), 
+    char* str_match = strndup((const char*)(hdl_source->source + match[0].rm_so), 
         (size_t)(match[0].rm_eo - match[0].rm_so));
     char* name_start = (char*)(str_match + NAME_START_OFF);
     size_t name_len = strlen(str_match) - 10;
@@ -28,21 +30,27 @@ void get_entity_name(hdl_source_t* hdl_source, const char* source) {
     regfree(&reg);
 }
 
-void get_arrays(hdl_source_t* hdl_source, const char* source) {
+void get_arrays(hdl_source_t* hdl_source) {
     regex_t reg;
     regmatch_t match[1];
-    const char* source_off = source;
+    const char* source_off = hdl_source->source;
     hdl_array_t* arrays = calloc(100, sizeof(hdl_array_t));
+    if(arrays == NULL) {
+        fprintf(stderr, "Failed to allocate memory for arrays !\n");
+        return;
+    }
     size_t array_count = 0;
 
     //TODO: Put end of entity declaration and source code into hdl_source
     int err = regcomp(&reg, "end;", REG_EXTENDED);
     if(err != 0) {
         fprintf(stderr, "Reg compile error !\n");
+        return;
     }
     err = regexec(&reg, source_off, 1, (regmatch_t*)match, 0);
     if(err != 0) {
          fprintf(stderr, "Reg exec error !\n");
+         return;
     }
     size_t end_of_port = match[0].rm_eo;
 
@@ -50,6 +58,7 @@ void get_arrays(hdl_source_t* hdl_source, const char* source) {
     err = regcomp(&reg, "\\w+_address0", REG_EXTENDED);
     if(err != 0) {
         fprintf(stderr, "Reg compile error !\n");
+        return;
     }
 
 
@@ -63,7 +72,7 @@ void get_arrays(hdl_source_t* hdl_source, const char* source) {
         (size_t)(match[0].rm_eo - match[0].rm_so));
         char* arr_name_start = str_match;
         source_off += match[0].rm_so + strlen(str_match);
-        if((source_off - source) > end_of_port) {
+        if((source_off - hdl_source->source) > end_of_port) {
             free(str_match);
             break;
         }
@@ -76,7 +85,13 @@ void get_arrays(hdl_source_t* hdl_source, const char* source) {
         free(str_match);
         array_count++;
     }
-    arrays = realloc(arrays, array_count * sizeof(hdl_array_t));
+    hdl_array_t* new_arrays = realloc(arrays, array_count * sizeof(hdl_array_t));
+    if(new_arrays == NULL) {
+        fprintf(stderr, "Failed to realloc for arrays !\n");
+    }
+    else {
+        hdl_source->arrays = new_arrays;
+    }
     hdl_source->arrays = arrays;
     hdl_source->nb_arrays = array_count;
     regfree(&reg);
@@ -110,10 +125,10 @@ void fill_arrays_ports(hdl_source_t* hdl_source) {
     }
 }
 
-void get_params(hdl_source_t* hdl_source, char* source) {
+void get_params(hdl_source_t* hdl_source) {
     regex_t reg;
     regmatch_t match[1];
-    const char* source_off = source;
+    const char* source_off = hdl_source->source;
     hdl_in_param_t* params = calloc(100, sizeof(hdl_in_param_t));
     size_t param_count = 0;
 
@@ -145,7 +160,7 @@ void get_params(hdl_source_t* hdl_source, char* source) {
         (size_t)(match[0].rm_eo - match[0].rm_so));
         char* param_name_start = str_match;
         source_off += match[0].rm_so + strlen(str_match);
-        if((source_off - source) > end_of_port) {
+        if((source_off - hdl_source->source) > end_of_port) {
             free(str_match);
             break;
         }
@@ -164,20 +179,35 @@ void get_params(hdl_source_t* hdl_source, char* source) {
     regfree(&reg);
 }
 
-hdl_source_t* parse_hdl(char* path) {
-
+hdl_source_t* hdl_create() {
     hdl_source_t* hdl_source = malloc(sizeof(hdl_source_t));
-    strncpy(hdl_source->path, path, strlen(path) + 1);
+    if(hdl_source == NULL) {
+        fprintf(stderr, "Allocation for hdl_source failed !\n");
+    }
+    memset(hdl_source, 0, sizeof(hdl_source_t));
+    get_hdl_path(hdl_source->path);
+    return hdl_source;
+}
 
-    char* source = get_source(path);
+void parse_hdl(hdl_source_t* hdl_source) {
+
+    char* source = get_source(hdl_source->path);
+    hdl_source->source = source;
     if(source == NULL) {
         fprintf(stderr, "THe program did not manage to read the source file !\n");
     }
 
-    get_entity_name(hdl_source, source);
-    get_arrays(hdl_source, source);
+    get_entity_name(hdl_source);
+    get_arrays(hdl_source);
     fill_arrays_ports(hdl_source);
-    get_params(hdl_source, source);
-    
-    return hdl_source;
+    get_params(hdl_source);
+}
+
+void hdl_free(hdl_source_t* hdl_source) {
+    if(hdl_source == NULL) {
+        return;
+    }
+    free(hdl_source->arrays);
+    free(hdl_source->params);
+    free(hdl_source->source);
 }

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "file.h"
-#include "parser.h"
+#include "hdl_data.h"
 #include <stddef.h>
 
 typedef struct {

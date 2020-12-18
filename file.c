@@ -5,6 +5,10 @@
 #include <string.h>
 
 char* get_source(char* path) {
+    if(path == NULL) {
+        fprintf(stderr, "Path is NULL !\n");
+        return NULL;
+    }
     FILE* hdl_source = fopen(path, "r");
     if(hdl_source == NULL) {
         fprintf(stderr, "Failed to open file !\n");

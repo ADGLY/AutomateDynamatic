@@ -1,5 +1,5 @@
 #include "file.h"
-#include "parser.h"
+#include "hdl_data.h"
 #include "tcl.h"
 
 
@@ -8,10 +8,8 @@
 
 int main(void) {
 
-    char hdl_path[MAX_NAME_LENGTH];
-    get_hdl_path(hdl_path);
-
-    hdl_source_t* hdl_source = parse_hdl(hdl_path);
+    hdl_source_t* hdl_source = hdl_create();
+    parse_hdl(hdl_source);
     create_AXI_script(hdl_source);
 
     return 0;
