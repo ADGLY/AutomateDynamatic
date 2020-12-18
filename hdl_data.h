@@ -42,6 +42,6 @@ static const char* const read_ports[NB_BRAM_INTERFACE] = {
     "_address1", "_ce1", "_we1", "_dout1", "_din1"
 };
 
-hdl_source_t* hdl_create();
+void hdl_create(hdl_source_t* hdl_source);
 void parse_hdl(hdl_source_t* hdl_source);
 void hdl_free(hdl_source_t* hdl_source);

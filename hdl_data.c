@@ -179,14 +179,9 @@ void get_params(hdl_source_t* hdl_source) {
     regfree(&reg);
 }
 
-hdl_source_t* hdl_create() {
-    hdl_source_t* hdl_source = malloc(sizeof(hdl_source_t));
-    if(hdl_source == NULL) {
-        fprintf(stderr, "Allocation for hdl_source failed !\n");
-    }
+void hdl_create(hdl_source_t* hdl_source) {
     memset(hdl_source, 0, sizeof(hdl_source_t));
     get_hdl_path(hdl_source->path);
-    return hdl_source;
 }
 
 void parse_hdl(hdl_source_t* hdl_source) {

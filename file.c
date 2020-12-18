@@ -21,7 +21,7 @@ char* get_source(char* path) {
     
     char* source = malloc(file_size);
     if(source == NULL) {
-        fprintf(stderr, "Memory allocation for the file data buffer hase failed !\n");
+        fprintf(stderr, "Memory allocation for the file data buffer has failed !\n");
         return NULL;
     }
     fread(source, sizeof(char), file_size, hdl_source);
