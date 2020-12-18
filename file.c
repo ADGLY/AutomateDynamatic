@@ -1,8 +1,9 @@
-#include "file.h"
 #include <stdio.h>
+#include <unistd.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include "file.h"
 
 char* get_source(char* path) {
     if(path == NULL) {
@@ -30,7 +31,38 @@ char* get_source(char* path) {
 }
 
 void get_hdl_path(char* path) {
-    printf("Where is top hdl file located ?\n");
+
+    printf("What is the dir path of the Dynamatic output (hdl) ?\n");
+    char temp[MAX_NAME_LENGTH];
+    char* result = fgets(temp, MAX_NAME_LENGTH, stdin);
+    if(result == NULL) {
+        fprintf(stderr, "There was an error while reading the input !\n");
+    }
+    if(temp[0] != '/') {
+        char* result = getcwd(path, MAX_NAME_LENGTH);
+        if(result == NULL) {
+            fprintf(stderr, "getcwd error !\n");
+            return;
+        }
+        if(temp[0] != '.') {
+            path[strlen(path)] = '/';
+            strcpy(path + strlen(path), temp);
+            path[strlen(path) - 1] = '\0';
+        }
+        else {
+            path[strlen(path)] = '\0';
+        }
+    }
+    else {
+        strcpy(path, temp);
+        path[strlen(path) - 1] = '\0';
+    }
+    return;
+}
+
+void get_hdl_name(char* path) {
+
+    printf("What is the name of the top file ?\n");
     char* result = fgets(path, MAX_NAME_LENGTH, stdin);
     if(result == NULL) {
         fprintf(stderr, "There was an error while reading the input !\n");

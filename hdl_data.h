@@ -25,7 +25,8 @@ typedef struct {
 
 
 typedef struct {
-    char path[MAX_NAME_LENGTH];
+    char top_file_path[MAX_NAME_LENGTH];
+    char dir[MAX_NAME_LENGTH];
     char name[MAX_NAME_LENGTH];
     hdl_array_t* arrays;
     hdl_in_param_t* params;

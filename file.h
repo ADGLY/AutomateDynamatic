@@ -4,3 +4,4 @@
 
 void get_hdl_path(char* path);
 char* get_source(char* path);
+void get_hdl_name(char* path);

@@ -1,3 +1,5 @@
+#include <sys/types.h>
+#include <dirent.h>
 #include <regex.h>
 #include <stdio.h>
 #include <string.h>
@@ -181,15 +183,20 @@ void get_params(hdl_source_t* hdl_source) {
 
 void hdl_create(hdl_source_t* hdl_source) {
     memset(hdl_source, 0, sizeof(hdl_source_t));
-    get_hdl_path(hdl_source->path);
+    get_hdl_path(hdl_source->dir);
+    char top_file_name[MAX_NAME_LENGTH];
+    get_hdl_name(top_file_name);
+    strcpy(hdl_source->top_file_path, hdl_source->dir);
+    hdl_source->top_file_path[strlen(hdl_source->dir)] = '/';
+    strcpy(hdl_source->top_file_path + strlen(hdl_source->dir) + 1, top_file_name);
 }
 
 void parse_hdl(hdl_source_t* hdl_source) {
 
-    char* source = get_source(hdl_source->path);
+    char* source = get_source(hdl_source->top_file_path);
     hdl_source->source = source;
     if(source == NULL) {
-        fprintf(stderr, "THe program did not manage to read the source file !\n");
+        fprintf(stderr, "The program did not manage to read the source file !\n");
     }
 
     get_entity_name(hdl_source);
