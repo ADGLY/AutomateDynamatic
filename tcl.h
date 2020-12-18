@@ -1,14 +1,20 @@
 #pragma once
 
+#include <stddef.h>
 #include "file.h"
 #include "hdl_data.h"
-#include <stddef.h>
+
+typedef struct {
+    const char* top_file;
+    const char* axi_file;
+} axi_files_t;
 
 typedef struct {
     char  name[MAX_NAME_LENGTH];
     char path[MAX_NAME_LENGTH];
     char interface_name[MAX_NAME_LENGTH];
     size_t nb_slave_registers;
+    axi_files_t axi_files;
 } axi_ip_t;
  
 typedef struct {

@@ -1,5 +1,6 @@
 #include "file.h"
 #include "hdl_data.h"
+#include "axi_files.h"
 #include "tcl.h"
 
 
@@ -14,6 +15,9 @@ int main(void) {
 
     create_project(&project, &hdl_source);
     generate_AXI_script(&project);
+
+    read_axi_files(&(project.axi_ip));
+    update_files(&project);
     hdl_free(&hdl_source);
     return 0;
 }
