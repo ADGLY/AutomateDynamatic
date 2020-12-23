@@ -56,8 +56,8 @@ void create_project(project_t* project, hdl_source_t* hdl_source) {
 
 void generate_MAIN_script(project_t* project) {
     FILE* tcl_script = fopen("generate_project.tcl", "w");
-    fprintf(tcl_script, "create_project %s %s/project_1 -part xc7z045ffg900-2\n", 
-    project->name, project->path);
+    fprintf(tcl_script, "create_project %s %s/%s -part xc7z045ffg900-2\n", 
+    project->name, project->path, project->name);
     fprintf(tcl_script, "set_property board_part xilinx.com:zc706:part0:1.4 [current_project]\n");
     fprintf(tcl_script, "set_property target_language VHDL [current_project]\n");
     char ip_script_path[MAX_NAME_LENGTH];

@@ -11,22 +11,22 @@ void read_axi_files(axi_ip_t* axi_ip) {
     char top_file_path[MAX_NAME_LENGTH];
     char top_file_path_suffix[MAX_NAME_LENGTH];
     strcpy(top_file_path, axi_ip->path);
-    sprintf(top_file_path_suffix, "/%s_1.0/hdl/%s_v1.0.vhd", axi_ip->name,
+    sprintf(top_file_path_suffix, "/%s_1.0/hdl/%s_v1_0.vhd", axi_ip->name,
      axi_ip->name);
     strcpy(top_file_path + strlen(axi_ip->path), top_file_path_suffix);
 
-    strcpy(top_file_path, axi_ip->axi_files.top_file_path);
+    strcpy(axi_ip->axi_files.top_file_path, top_file_path);
     
     char* top_file = get_source(top_file_path);
 
     char axi_path[MAX_NAME_LENGTH];
     char axi_path_suffix[MAX_NAME_LENGTH];
     strcpy(axi_path, axi_ip->path);
-    sprintf(axi_path_suffix, "/%s_1.0/hdl/%s_v1.0.vhd", axi_ip->name,
-     axi_ip->name);
+    sprintf(axi_path_suffix, "/%s_1.0/hdl/%s_v1_0_%s.vhd", axi_ip->name,
+     axi_ip->name, axi_ip->interface_name);
     strcpy(axi_path + strlen(axi_ip->path), axi_path_suffix);
 
-    strcpy(axi_path, axi_ip->axi_files.axi_file_path);
+    strcpy(axi_ip->axi_files.axi_file_path, axi_path);
     
     char* axi_file = get_source(axi_path);
 
@@ -81,19 +81,19 @@ void write_arrays_port_map(FILE* new_top_file, bram_interface_t* interface) {
     const char* prefix = "dynamatic_";
     
     fprintf(new_top_file, "\t\t%s", interface->address);
-    fprintf(new_top_file, " => %s%s\n", prefix, interface->address);
+    fprintf(new_top_file, " => %s%s,\n", prefix, interface->address);
 
-    fprintf(new_top_file, "\t\t%s", interface->address);
-    fprintf(new_top_file, " => %s%s\n", prefix, interface->ce);
+    fprintf(new_top_file, "\t\t%s", interface->ce);
+    fprintf(new_top_file, " => %s%s,\n", prefix, interface->ce);
 
-    fprintf(new_top_file, "\t\t%s", interface->address);
-    fprintf(new_top_file, " => %s%s\n", prefix, interface->we);
+    fprintf(new_top_file, "\t\t%s", interface->we);
+    fprintf(new_top_file, " => %s%s,\n", prefix, interface->we);
 
-    fprintf(new_top_file, "\t\t%s", interface->address);
-    fprintf(new_top_file, " => %s%s\n", prefix, interface->dout);
+    fprintf(new_top_file, "\t\t%s", interface->dout);
+    fprintf(new_top_file, " => %s%s,\n", prefix, interface->dout);
 
-    fprintf(new_top_file, "\t\t%s", interface->address);
-    fprintf(new_top_file, " => %s%s\n", prefix, interface->din);
+    fprintf(new_top_file, "\t\t%s", interface->din);
+    fprintf(new_top_file, " => %s%s,\n", prefix, interface->din);
 }
 
 void advance_in_file(regex_t* reg, regmatch_t* match, FILE* file, char** offset, const char* pattern) {
@@ -223,8 +223,8 @@ void write_top_file(project_t* project) {
     fprintf(new_top_file, "\t\tend_ready => dynamatic_end_ready,\n");
 
     for(int i = 0; i < hdl_source->nb_arrays; ++i) {
-        write_arrays_port_map(new_top_file, &(hdl_source->arrays->write_ports));
-        write_arrays_port_map(new_top_file, &(hdl_source->arrays->read_ports));
+        write_arrays_port_map(new_top_file, &(hdl_source->arrays[i].write_ports));
+        write_arrays_port_map(new_top_file, &(hdl_source->arrays[i].read_ports));
     }
 
     for(int i = 0; i < hdl_source->nb_params; ++i) {
@@ -275,13 +275,14 @@ void write_axi_file(project_t* project) {
     advance_in_file(&reg, match, new_axi_file, &axi_file_off, "process [(]slv_reg0, ");
     //We skip slv_reg1
     axi_file_off += strlen("slv_reg1, ");
+    fseek(new_axi_file, -1, SEEK_CUR);
     fprintf(new_axi_file, "axi_start_ready, axi_end_out, axi_end_valid, ");
 
     advance_in_file(&reg, match, new_axi_file, &axi_file_off, "reg_data_out <= slv_reg1;");
     
     //We want to erase slv_reg1;
-    fseek(new_axi_file, -9, SEEK_CUR);
-    fprintf(new_axi_file, "(31 downto 3 => '0') & axi_start_ready & axi_end_out & axi_end_valid;");
+    fseek(new_axi_file, -10, SEEK_CUR);
+    fprintf(new_axi_file, "(31 downto 3 => '0') & axi_start_ready & axi_end_out & axi_end_valid;\n");
 
     advance_in_file(&reg, match, new_axi_file, &axi_file_off, "-- Add user logic here");
 
@@ -317,13 +318,8 @@ void update_axi_file(project_t* project) {
     remove("axi_file.tmp");
 
     //Open real file and replace its content
-    char axi_path[MAX_NAME_LENGTH];
-    char axi_path_suffix[MAX_NAME_LENGTH];
-    strcpy(axi_path, project->axi_ip.path);
-    sprintf(axi_path_suffix, "/%s_1.0/hdl/%s_v1.0.vhd", project->axi_ip.name,
-     project->axi_ip.name);
-    strcpy(axi_path + strlen(project->axi_ip.path), axi_path_suffix);
-    FILE* axi_file = fopen(axi_path, "w");
+    //Open real file and replace its content
+    FILE* axi_file = fopen(project->axi_ip.axi_files.axi_file_path, "w");
     fwrite(new_axi_file_src, sizeof(char), strlen(new_axi_file_src), axi_file);
     fclose(axi_file);
 }
