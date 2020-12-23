@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stddef.h>
+
 #define MAX_NAME_LENGTH 256
 
 void get_hdl_path(char* path);
