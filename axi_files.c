@@ -3,7 +3,7 @@
 #include <string.h>
 #include "axi_files.h"
 #include "file.h"
-#include "hdl_data.h"
+#include "hdl.h"
 
 
 void read_axi_files(axi_ip_t* axi_ip) {
@@ -17,7 +17,7 @@ void read_axi_files(axi_ip_t* axi_ip) {
 
     strcpy(axi_ip->axi_files.top_file_path, top_file_path);
     
-    char* top_file = get_source(top_file_path);
+    char* top_file = get_source(top_file_path, NULL);
 
     char axi_path[MAX_NAME_LENGTH];
     char axi_path_suffix[MAX_NAME_LENGTH];
@@ -28,7 +28,7 @@ void read_axi_files(axi_ip_t* axi_ip) {
 
     strcpy(axi_ip->axi_files.axi_file_path, axi_path);
     
-    char* axi_file = get_source(axi_path);
+    char* axi_file = get_source(axi_path, NULL);
 
 
     axi_ip->axi_files.axi_file = axi_file;
@@ -302,24 +302,26 @@ void write_axi_file(project_t* project) {
 
 void update_top_file(project_t* project) {
     write_top_file(project);
-    char* new_top_file_src = get_source("top_file.tmp");
+    size_t size;
+    char* new_top_file_src = get_source("top_file.tmp", &size);
     remove("top_file.tmp");
 
     //Open real file and replace its content
     FILE* top_file = fopen(project->axi_ip.axi_files.top_file_path, "w");
-    fwrite(new_top_file_src, sizeof(char), strlen(new_top_file_src), top_file);
+    fwrite(new_top_file_src, sizeof(char), size, top_file);
     fclose(top_file);
 }
 
 void update_axi_file(project_t* project) {
     write_axi_file(project);
-    char* new_axi_file_src = get_source("axi_file.tmp");
+    size_t size;
+    char* new_axi_file_src = get_source("axi_file.tmp", &size);
     remove("axi_file.tmp");
 
     //Open real file and replace its content
     //Open real file and replace its content
     FILE* axi_file = fopen(project->axi_ip.axi_files.axi_file_path, "w");
-    fwrite(new_axi_file_src, sizeof(char), strlen(new_axi_file_src), axi_file);
+    fwrite(new_axi_file_src, sizeof(char), size, axi_file);
     fclose(axi_file);
 }
 

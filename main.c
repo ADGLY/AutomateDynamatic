@@ -1,14 +1,13 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/prctl.h>
-#include <libexplain/execlp.h>
 #include <errno.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include "file.h"
-#include "hdl_data.h"
+#include "hdl.h"
 #include "axi_files.h"
 #include "tcl.h"
 
@@ -78,15 +77,14 @@ void piping() {
 ///home/antoine/Documents/Dynamatic/HistogramInt/hdl
 int main(void) {
     hdl_source_t hdl_source;
-    project_t project;
     hdl_create(&hdl_source);
     parse_hdl(&hdl_source);
 
+    project_t project;
     create_project(&project, &hdl_source);
     generate_AXI_script(&project);
     generate_MAIN_script(&project);
 
-    //int err = execlp("vivado", "vivado", "-mode", "tcl", NULL);
     piping();
     read_axi_files(&(project.axi_ip));
     update_files(&project);

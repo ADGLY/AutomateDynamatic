@@ -2,7 +2,7 @@
 
 #include <stddef.h>
 #include "file.h"
-#include "hdl_data.h"
+#include "hdl.h"
 
 typedef struct {
     const char* top_file;

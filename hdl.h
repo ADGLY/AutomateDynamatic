@@ -33,15 +33,9 @@ typedef struct {
     size_t nb_arrays;
     size_t nb_params;
     char* source;
+    size_t end_of_ports_decl;
 } hdl_source_t;
 
-static const char* const write_ports[NB_BRAM_INTERFACE] = {
-    "_address0", "_ce0", "_we0", "_dout0", "_din0"
-};
-
-static const char* const read_ports[NB_BRAM_INTERFACE] = {
-    "_address1", "_ce1", "_we1", "_dout1", "_din1"
-};
 
 void hdl_create(hdl_source_t* hdl_source);
 void parse_hdl(hdl_source_t* hdl_source);

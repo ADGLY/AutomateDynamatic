@@ -1,3 +1,9 @@
 main
 histogram_elaborated_optimized.vhd
 .vscode/*
+.Xil/*
+*.log
+*.jou
+main
+*.tcl
+*.vhd

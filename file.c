@@ -5,7 +5,7 @@
 #include <string.h>
 #include "file.h"
 
-char* get_source(char* path) {
+char* get_source(char* path, size_t* file_size) {
     if(path == NULL) {
         fprintf(stderr, "Path is NULL !\n");
         return NULL;
@@ -16,17 +16,20 @@ char* get_source(char* path) {
         return NULL;
     }
     fseek(hdl_source, 0L, SEEK_END);
-    size_t file_size = (size_t)ftell(hdl_source);
+    size_t size = (size_t)ftell(hdl_source);
     rewind(hdl_source);
     
     
-    char* source = malloc(file_size);
+    char* source = malloc(size);
     if(source == NULL) {
         fprintf(stderr, "Memory allocation for the file data buffer has failed !\n");
         return NULL;
     }
-    fread(source, sizeof(char), file_size, hdl_source);
+    fread(source, sizeof(char), size, hdl_source);
     fclose(hdl_source);
+    if(file_size != NULL) {
+        *file_size = size;
+    }
     return source;
 }
 
@@ -46,6 +49,9 @@ void get_hdl_path(char* path) {
         }
         if(temp[0] != '.') {
             path[strlen(path)] = '/';
+            if(strlen(path) + strlen(temp) + 1 >= MAX_NAME_LENGTH) {
+                fprintf(stderr, "Path too long !\n");
+            }
             strcpy(path + strlen(path), temp);
             path[strlen(path) - 1] = '\0';
         }
@@ -54,6 +60,9 @@ void get_hdl_path(char* path) {
         }
     }
     else {
+        if(strlen(temp) + 1 >= MAX_NAME_LENGTH) {
+            fprintf(stderr, "Path too long !\n");
+        }
         strcpy(path, temp);
         path[strlen(path) - 1] = '\0';
     }
