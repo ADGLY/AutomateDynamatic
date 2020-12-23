@@ -272,10 +272,9 @@ void write_axi_file(project_t* project) {
 
     fprintf(new_axi_file, "\t\taxi_reset : out std_logic;\n");
 
-    advance_in_file(&reg, match, new_axi_file, &axi_file_off, "process [(]slv_reg0, ");
+    advance_in_file(&reg, match, new_axi_file, &axi_file_off, "process [(]slv_reg0,");
     //We skip slv_reg1
     axi_file_off += strlen("slv_reg1, ");
-    fseek(new_axi_file, -1, SEEK_CUR);
     fprintf(new_axi_file, "axi_start_ready, axi_end_out, axi_end_valid, ");
 
     advance_in_file(&reg, match, new_axi_file, &axi_file_off, "reg_data_out <= slv_reg1;");
