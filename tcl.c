@@ -3,6 +3,8 @@
 #include <regex.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <unistd.h>
+#include <string.h>
 #include "tcl.h"
 
 void generate_MAIN_script(project_t* project) {
@@ -15,6 +17,9 @@ void generate_MAIN_script(project_t* project) {
     char* result = getcwd(ip_script_path, MAX_NAME_LENGTH);
     if(result == NULL) {
         fprintf(stderr, "getcwd error !\n");
+    }
+    if(strlen(ip_script_path) + strlen("/generate_axi_ip.tcl") + 1 >= MAX_NAME_LENGTH) {
+        fprintf(stderr, "The path is too long !\n");
     }
     strcpy(ip_script_path + strlen(ip_script_path), "/generate_axi_ip.tcl");
 
@@ -79,7 +84,6 @@ void generate_AXI_script(project_t* project) {
         }
         closedir(d);
     }
-     //add_files -norecurse -copy_to /home/antoine/ip_repo/dynamatic_test_1.0/src {/home/antoine/Documents/Dynamatic/Histo_187/hdl/LSQ_hist.v /home/antoine/Documents/Dynamatic/Histo_187/hdl/mul_wrapper.vhd /home/antoine/Documents/Dynamatic/Histo_187/hdl/arithmetic_units.vhd /home/antoine/Documents/Dynamatic/Histo_187/hdl/elastic_components.vhd /home/antoine/Documents/Dynamatic/Histo_187/hdl/multipliers.vhd /home/antoine/Documents/Dynamatic/Histo_187/hdl/MemCont.vhd /home/antoine/Documents/Dynamatic/Histo_187/hdl/histogram_elaborated_optimized.vhd /home/antoine/Documents/Dynamatic/Histo_187/hdl/delay_buffer.vhd}
     fprintf(tcl_script, "add_files -norecurse -copy_to %s/%s_1.0/src {", axi_ip->path, axi_ip->name);
 
     for(int i = 0; i < nb_files; ++i) {
@@ -92,16 +96,12 @@ void generate_AXI_script(project_t* project) {
     }
     fprintf(tcl_script, "}\n");
 
-    //set_property file_type {VHDL 2008} [get_files  /home/antoine/ip_repo/dynamatic_test_1.0/src/mul_wrapper.vhd]
     for(int i = 0; i < nb_files; ++i) {
         if(files_to_add[i][strlen(files_to_add[i]) - 1] == 'd') {
             fprintf(tcl_script, "set_property file_type {VHDL 2008} [get_files  ");
             fprintf(tcl_script, "%s/%s_1.0/src/%s]\n", axi_ip->path, axi_ip->name, files_to_add[i]);
         }
     }
-
-
-
 
     fclose(tcl_script);
 }

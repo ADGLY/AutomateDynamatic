@@ -6,24 +6,43 @@
 #include "hdl.h"
 
 
-void read_axi_files(axi_ip_t* axi_ip) {
-
+void read_top_file(axi_ip_t* axi_ip) {
     char top_file_path[MAX_NAME_LENGTH];
     char top_file_path_suffix[MAX_NAME_LENGTH];
     strcpy(top_file_path, axi_ip->path);
-    sprintf(top_file_path_suffix, "/%s_1.0/hdl/%s_v1_0.vhd", axi_ip->name,
+
+    int written = snprintf(top_file_path_suffix, MAX_NAME_LENGTH, "/%s_1.0/hdl/%s_v1_0.vhd", axi_ip->name,
      axi_ip->name);
+    if(written >= MAX_NAME_LENGTH) {
+        fprintf(stderr, "Top file path suffix is too long !\n");
+    }
+    if(strlen(axi_ip->path) + strlen(top_file_path_suffix) + 1 >= MAX_NAME_LENGTH) {
+        fprintf(stderr, "Top file full path is too long !\n");
+    }
+
     strcpy(top_file_path + strlen(axi_ip->path), top_file_path_suffix);
 
     strcpy(axi_ip->axi_files.top_file_path, top_file_path);
     
     char* top_file = get_source(top_file_path, NULL);
 
+    axi_ip->axi_files.top_file = top_file;
+}
+
+void read_axi_file(axi_ip_t* axi_ip) {
     char axi_path[MAX_NAME_LENGTH];
     char axi_path_suffix[MAX_NAME_LENGTH];
     strcpy(axi_path, axi_ip->path);
-    sprintf(axi_path_suffix, "/%s_1.0/hdl/%s_v1_0_%s.vhd", axi_ip->name,
+
+    int written = snprintf(axi_path_suffix, MAX_NAME_LENGTH, "/%s_1.0/hdl/%s_v1_0_%s.vhd", axi_ip->name,
      axi_ip->name, axi_ip->interface_name);
+
+    if(written >= MAX_NAME_LENGTH) {
+        fprintf(stderr, "Axi path suffix is too long !\n");
+    }
+    if(strlen(axi_ip->path) + strlen(axi_path_suffix) + 1 >= MAX_NAME_LENGTH) {
+        fprintf(stderr, "Top file full path is too long !\n");
+    }
     strcpy(axi_path + strlen(axi_ip->path), axi_path_suffix);
 
     strcpy(axi_ip->axi_files.axi_file_path, axi_path);
@@ -32,7 +51,11 @@ void read_axi_files(axi_ip_t* axi_ip) {
 
 
     axi_ip->axi_files.axi_file = axi_file;
-    axi_ip->axi_files.top_file = top_file;
+}
+
+void read_axi_files(axi_ip_t* axi_ip) {
+    read_top_file(axi_ip);
+    read_axi_file(axi_ip);
 }
 
 void write_array_ports(FILE* new_top_file, bram_interface_t* interface) {
@@ -96,7 +119,7 @@ void write_arrays_port_map(FILE* new_top_file, bram_interface_t* interface) {
     fprintf(new_top_file, " => %s%s,\n", prefix, interface->din);
 }
 
-void advance_in_file(regex_t* reg, regmatch_t* match, FILE* file, char** offset, const char* pattern) {
+void advance_in_file(regex_t* reg, regmatch_t* match, FILE* file, const char** offset, const char* pattern) {
     int err = regcomp(reg, pattern, REG_EXTENDED);
     if(err != 0) {
         fprintf(stderr, "Reg compile error !\n");
@@ -116,13 +139,13 @@ void write_top_file(project_t* project) {
 
     FILE* new_top_file = fopen("top_file.tmp", "w");
 
-    char* top_file_off = project->axi_ip.axi_files.top_file;
+    const char* top_file_off = project->axi_ip.axi_files.top_file;
 
     advance_in_file(&reg, match, new_top_file, &top_file_off, "-- Users to add ports here");
 
     hdl_source_t* hdl_source = project->hdl_source;
     
-    for(int i = 0; i < hdl_source->nb_arrays; ++i) {
+    for(size_t i = 0; i < hdl_source->nb_arrays; ++i) {
       write_array_ports(new_top_file, &(hdl_source->arrays[i].write_ports));
       write_array_ports(new_top_file, &(hdl_source->arrays[i].read_ports));  
     }
@@ -136,7 +159,7 @@ void write_top_file(project_t* project) {
     fprintf(new_top_file, "\t\taxi_end_valid : in std_logic;\n");
     fprintf(new_top_file, "\t\taxi_end_ready : out std_logic;\n");
 
-    for(int i = 0; i < hdl_source->nb_params; ++i) {
+    for(size_t i = 0; i < hdl_source->nb_params; ++i) {
         const char* param_name = hdl_source->params[i].name;
         fprintf(new_top_file, "\t\taxi_%s_din : out std_logic_vector(31 downto 0);\n", param_name);
     }
@@ -159,12 +182,12 @@ void write_top_file(project_t* project) {
     fprintf(new_top_file, "\t\tend_valid:  out std_logic;\n");
     fprintf(new_top_file, "\t\tend_ready:  in std_logic;\n");
 
-    for(int i = 0; i < hdl_source->nb_arrays; ++i) {
+    for(size_t i = 0; i < hdl_source->nb_arrays; ++i) {
       write_array_ports_wo_prefix(new_top_file, &(hdl_source->arrays[i].write_ports));
       write_array_ports_wo_prefix(new_top_file, &(hdl_source->arrays[i].read_ports));  
     }
 
-    for(int i = 0; i < hdl_source->nb_params; ++i) {
+    for(size_t i = 0; i < hdl_source->nb_params; ++i) {
         const char* param_name = hdl_source->params[i].name;
         fprintf(new_top_file, "\t\t%s_din : in std_logic_vector (31 downto 0);\n", param_name);
         fprintf(new_top_file, "\t\t%s_valid_in : in std_logic;\n", param_name);
@@ -188,7 +211,7 @@ void write_top_file(project_t* project) {
     fprintf(new_top_file, "\tsignal dynamatic_end_valid : std_logic;\n");
     fprintf(new_top_file, "\tsignal dynamatic_end_ready : std_logic;\n");
 
-    for(int i = 0; i < hdl_source->nb_params; ++i) {
+    for(size_t i = 0; i < hdl_source->nb_params; ++i) {
         const char* param_name = hdl_source->params[i].name;
         fprintf(new_top_file, "\tsignal dynamatic_%s_din : std_logic_vector(31 downto 0);\n", param_name);
     }
@@ -201,7 +224,7 @@ void write_top_file(project_t* project) {
     fprintf(new_top_file, "\t\taxi_end_valid => dynamatic_end_valid,\n");
     fprintf(new_top_file, "\t\taxi_end_ready => dynamatic_end_ready,\n");
 
-    for(int i = 0; i < hdl_source->nb_params; ++i) {
+    for(size_t i = 0; i < hdl_source->nb_params; ++i) {
         const char* param_name = hdl_source->params[i].name;
         fprintf(new_top_file, "\t\taxi_%s_din => dynamatic_%s_din,\n", param_name, param_name);
     }
@@ -222,12 +245,12 @@ void write_top_file(project_t* project) {
     fprintf(new_top_file, "\t\tend_valid => dynamatic_end_valid,\n");
     fprintf(new_top_file, "\t\tend_ready => dynamatic_end_ready,\n");
 
-    for(int i = 0; i < hdl_source->nb_arrays; ++i) {
+    for(size_t i = 0; i < hdl_source->nb_arrays; ++i) {
         write_arrays_port_map(new_top_file, &(hdl_source->arrays[i].write_ports));
         write_arrays_port_map(new_top_file, &(hdl_source->arrays[i].read_ports));
     }
 
-    for(int i = 0; i < hdl_source->nb_params; ++i) {
+    for(size_t i = 0; i < hdl_source->nb_params; ++i) {
         const char* param_name = hdl_source->params[i].name;
         fprintf(new_top_file, "\t\t%s_din => dynamatic_%s_din,\n", param_name, param_name);
         fprintf(new_top_file, "\t\t%s_valid_in => '1',\n", param_name);
@@ -254,7 +277,7 @@ void write_axi_file(project_t* project) {
 
     FILE* new_axi_file = fopen("axi_file.tmp", "w");
 
-    char* axi_file_off = project->axi_ip.axi_files.axi_file;
+    const char* axi_file_off = project->axi_ip.axi_files.axi_file;
 
     hdl_source_t* hdl_source = project->hdl_source;
     advance_in_file(&reg, match, new_axi_file, &axi_file_off, "-- Users to add ports here");
@@ -265,7 +288,7 @@ void write_axi_file(project_t* project) {
     fprintf(new_axi_file, "\t\taxi_end_valid : in std_logic;\n");
     fprintf(new_axi_file, "\t\taxi_end_ready : out std_logic;\n");
 
-    for(int i = 0; i < hdl_source->nb_params; ++i) {
+    for(size_t i = 0; i < hdl_source->nb_params; ++i) {
         const char* param_name = hdl_source->params[i].name;
         fprintf(new_axi_file, "\t\taxi_%s_din : out std_logic_vector(31 downto 0);\n", param_name);
     }
@@ -289,7 +312,7 @@ void write_axi_file(project_t* project) {
     fprintf(new_axi_file, "\taxi_end_ready <= slv_reg0(1);\n");
     fprintf(new_axi_file, "\taxi_reset <= slv_reg0(2);\n");
     int slv_reg_nb = 2;
-    for(int i = 0; i < hdl_source->nb_params; ++i) {
+    for(size_t i = 0; i < hdl_source->nb_params; ++i) {
         const char* param_name = hdl_source->params[i].name;
         fprintf(new_axi_file, "\taxi_%s_din <= slv_reg%d;\n", param_name, slv_reg_nb);
         slv_reg_nb++;
@@ -319,7 +342,6 @@ void update_axi_file(project_t* project) {
     remove("axi_file.tmp");
 
     //Open real file and replace its content
-    //Open real file and replace its content
     FILE* axi_file = fopen(project->axi_ip.axi_files.axi_file_path, "w");
     fwrite(new_axi_file_src, sizeof(char), size, axi_file);
     fclose(axi_file);
@@ -328,5 +350,4 @@ void update_axi_file(project_t* project) {
 void update_files(project_t* project) {
     update_top_file(project);
     update_axi_file(project);
-
 }
