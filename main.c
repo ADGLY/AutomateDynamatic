@@ -17,9 +17,14 @@ int main(void) {
     generate_MAIN_script(&project);
 
     
-    generate_project();
+    launch_script("generate_project.tcl");
     read_axi_files(&(project.axi_ip));
     update_files(&project);
+
+    generate_final_script(&project);
+
+    launch_script("final_script.tcl");
+
     hdl_free(&hdl_source);
     return 0;
 }

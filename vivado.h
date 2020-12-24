@@ -17,6 +17,7 @@ typedef struct {
     char interface_name[MAX_NAME_LENGTH];
     size_t nb_slave_registers;
     axi_files_t axi_files;
+    int revision;
 } axi_ip_t;
  
 typedef struct {
@@ -28,4 +29,4 @@ typedef struct {
 
 void create_project(project_t* project, hdl_source_t* hdl_source);
 
-void generate_project();
+void launch_script(const char* name);

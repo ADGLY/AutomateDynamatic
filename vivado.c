@@ -53,10 +53,12 @@ void create_project(project_t* project, hdl_source_t* hdl_source) {
     }
     strcpy(project->axi_ip.path + strlen(project->axi_ip.path), "/ip_repo");
     project->hdl_source = hdl_source;
+
+    project->axi_ip.revision = 1;
 }
 
 
-void generate_project() {
+void launch_script(const char* name) {
     FILE* vivado_input;
     vivado_input = popen("vivado -mode tcl", "w");
     if(vivado_input == NULL) {
@@ -69,7 +71,7 @@ void generate_project() {
         fprintf(stderr, "getcwd error !\n");
         return;
     }
-    fprintf(vivado_input, "source %s/generate_project.tcl\n", script_path);
+    fprintf(vivado_input, "source %s/%s\n", script_path, name);
     fprintf(vivado_input, "exit\n");
     pclose(vivado_input);
 }
