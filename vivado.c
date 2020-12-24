@@ -45,6 +45,9 @@ void create_project(project_t* project, hdl_source_t* hdl_source) {
     get_project_path(project);
     get_project_name(project);
     strcpy(project->axi_ip.path, project->path);
+    if(strlen(project->axi_ip.path) + strlen("/ip_repo") + 1 >= MAX_NAME_LENGTH) {
+        fprintf(stderr, "The path for the IP is too long !\n");
+    }
     strcpy(project->axi_ip.path + strlen(project->axi_ip.path), "/ip_repo");
     project->hdl_source = hdl_source;
 }
