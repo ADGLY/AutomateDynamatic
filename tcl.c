@@ -199,6 +199,24 @@ void generate_memory(FILE* tcl_script, hdl_array_t* arr, axi_ip_t* axi_ip) {
     generate_memory_interface(tcl_script, axi_ip, arr->name, "read", &(arr->read_ports));
 }
 
+void memory_connection_automation(FILE* tcl_script, hdl_source_t* hdl_source) {
+    for(size_t i = 0; i < hdl_source->nb_arrays; ++i) {
+        hdl_array_t* arr = &(hdl_source->arrays[i]);
+
+        //Write
+        fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config");
+        fprintf(tcl_script, " { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7_0/M_AXI_GP0}");
+        fprintf(tcl_script, " Slave {/axi_bram_ctrl_%s_write/S_AXI} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}", arr->name);
+        fprintf(tcl_script, "  [get_bd_intf_pins axi_bram_ctrl_%s_write/S_AXI]\n", arr->name);
+        
+        //Read
+        fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config");
+        fprintf(tcl_script, " { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7_0/M_AXI_GP0}");
+        fprintf(tcl_script, " Slave {/axi_bram_ctrl_%s_read/S_AXI} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}", arr->name);
+        fprintf(tcl_script, "  [get_bd_intf_pins axi_bram_ctrl_%s_read/S_AXI]\n", arr->name);
+    }
+    
+}
 
 void generate_final_script(project_t* project) {
     axi_ip_t* axi_ip = &(project->axi_ip);
@@ -256,6 +274,33 @@ void generate_final_script(project_t* project) {
     for(size_t i = 0; i < project->hdl_source->nb_arrays; ++i) {
         generate_memory(tcl_script, &(project->hdl_source->arrays[i]), axi_ip);
     }
+
+
+    //Specific to Zynq
+    fprintf(tcl_script, "startgroup\n");
+    fprintf(tcl_script, "create_bd_cell -type ip -vlnv xilinx.com:ip:processing_system7:5.5 processing_system7_0\n");
+    fprintf(tcl_script, "endgroup\n");
+    fprintf(tcl_script, "startgroup\n");
+    fprintf(tcl_script, "set_property -dict [list CONFIG.preset {ZC706}] [get_bd_cells processing_system7_0]\n");
+    fprintf(tcl_script, "set_property -dict [list CONFIG.PCW_FPGA0_PERIPHERAL_FREQMHZ {100}] [get_bd_cells processing_system7_0]\n");
+    fprintf(tcl_script, "endgroup\n");
+    fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:processing_system7");
+    //No apply board preset ?
+    fprintf(tcl_script, " -config {make_external \"FIXED_IO, DDR\" apply_board_preset \"0\" Master \"Disable\" Slave \"Disable\" }  [get_bd_cells processing_system7_0]\n");
+    
+    fprintf(tcl_script, "startgroup\n");
+    memory_connection_automation(tcl_script, project->hdl_source);
+    fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7_0/M_AXI_GP0}");
+    fprintf(tcl_script, " Slave {/%s_0/%s} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}", axi_ip->name, axi_ip->interface_name);
+    fprintf(tcl_script, "  [get_bd_intf_pins %s_0/%s]\n", axi_ip->name, axi_ip->interface_name);
+    fprintf(tcl_script, "endgroup\n");
+
+    for(size_t i = 0; i < project->hdl_source->nb_arrays; ++i) {
+        hdl_array_t* arr = &(project->hdl_source->arrays[i]);
+        fprintf(tcl_script, "connect_bd_net [get_bd_pins blk_mem_gen_%s_write/clkb] [get_bd_pins processing_system7_0/FCLK_CLK0]\n", arr->name);
+        fprintf(tcl_script, "connect_bd_net [get_bd_pins blk_mem_gen_%s_read/clkb] [get_bd_pins processing_system7_0/FCLK_CLK0]\n", arr->name);
+    }
+
 
     fprintf(tcl_script, "save_bd_design\n");
 
