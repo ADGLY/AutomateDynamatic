@@ -89,6 +89,7 @@ void generate_AXI_script(project_t* project) {
         }
         closedir(d);
     }
+    regfree(&reg);
     fprintf(tcl_script, "add_files -norecurse -copy_to %s/%s_1.0/src {", axi_ip->path, axi_ip->name);
 
     for(int i = 0; i < nb_files; ++i) {

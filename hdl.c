@@ -28,6 +28,7 @@ void get_end_of_ports_decl(hdl_source_t* hdl_source) {
          return;
     }
     hdl_source->end_of_ports_decl = match[0].rm_eo;
+    regfree(&reg);
 }
 
 void get_entity_name(hdl_source_t* hdl_source) {

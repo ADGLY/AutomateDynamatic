@@ -30,3 +30,5 @@ typedef struct {
 void create_project(project_t* project, hdl_source_t* hdl_source);
 
 void launch_script(const char* name);
+
+void project_free(project_t* project);

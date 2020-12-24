@@ -1,6 +1,7 @@
 #include <regex.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "axi_files.h"
 #include "file.h"
 #include "hdl.h"
@@ -128,6 +129,8 @@ void advance_in_file(regex_t* reg, regmatch_t* match, FILE* file, const char** o
     if(err != 0) {
          fprintf(stderr, "Reg exec error !\n");
     }
+
+    regfree(reg);
 
     fwrite(*offset, sizeof(char), match[0].rm_eo + 1, file);
     *offset += match[0].rm_eo + 1;
@@ -333,6 +336,7 @@ void update_top_file(project_t* project) {
     FILE* top_file = fopen(project->axi_ip.axi_files.top_file_path, "w");
     fwrite(new_top_file_src, sizeof(char), size, top_file);
     fclose(top_file);
+    free((void*)new_top_file_src);
 }
 
 void update_axi_file(project_t* project) {
@@ -345,6 +349,7 @@ void update_axi_file(project_t* project) {
     FILE* axi_file = fopen(project->axi_ip.axi_files.axi_file_path, "w");
     fwrite(new_axi_file_src, sizeof(char), size, axi_file);
     fclose(axi_file);
+    free((void*)new_axi_file_src);
 }
 
 void update_files(project_t* project) {

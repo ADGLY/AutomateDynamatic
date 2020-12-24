@@ -87,3 +87,9 @@ void launch_script(const char* name) {
     fprintf(vivado_input, "exit\n");
     pclose(vivado_input);
 }
+
+void project_free(project_t* project) {
+    hdl_free(project->hdl_source);
+    free((void*)(project->axi_ip.axi_files.top_file));
+    free((void*)(project->axi_ip.axi_files.axi_file));
+}

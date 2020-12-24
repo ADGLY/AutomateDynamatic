@@ -25,6 +25,6 @@ int main(void) {
 
     launch_script("final_script.tcl");
 
-    hdl_free(&hdl_source);
+    project_free(&project);
     return 0;
 }
