@@ -267,7 +267,11 @@ void write_top_file(project_t* project) {
 
     fprintf(new_top_file, "\t);\n");
 
-    advance_in_file(&reg, match, new_top_file, &top_file_off, "end arch_imp;");
+    const char* cur = top_file_off;
+    const char* top_file = project->axi_ip.axi_files.top_file;
+    const char* end = top_file + strlen(top_file);
+    size_t remaining = end - cur;
+    fwrite(top_file_off, sizeof(char), remaining, new_top_file);
 
     fclose(new_top_file);
 
@@ -321,7 +325,11 @@ void write_axi_file(project_t* project) {
         slv_reg_nb++;
     }
 
-    advance_in_file(&reg, match, new_axi_file, &axi_file_off, "end arch_imp;");
+    const char* cur = axi_file_off;
+    const char* axi_file = project->axi_ip.axi_files.axi_file;
+    const char* end = axi_file + strlen(axi_file);
+    size_t remaining = end - cur;
+    fwrite(axi_file_off, sizeof(char), remaining, new_axi_file);
     fclose(new_axi_file);
     regfree(&reg);
 }

@@ -20,7 +20,7 @@ char* get_source(char* path, size_t* file_size) {
     rewind(hdl_source);
     
     
-    char* source = malloc(size);
+    char* source = malloc(size + 1);
     if(source == NULL) {
         fprintf(stderr, "Memory allocation for the file data buffer has failed !\n");
         return NULL;
@@ -30,6 +30,7 @@ char* get_source(char* path, size_t* file_size) {
     if(file_size != NULL) {
         *file_size = size;
     }
+    source[size] = '\0';
     return source;
 }
 
