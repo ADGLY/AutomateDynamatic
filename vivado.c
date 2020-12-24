@@ -20,6 +20,9 @@ void get_project_path(project_t* project) {
             return;
         }
         if(temp[0] != '.') {
+            if(strlen(project->path) + 1 + strlen(temp) + 1 >= MAX_NAME_LENGTH) {
+                fprintf(stderr, "Path is too long !\n");
+            }
             project->path[strlen(project->path)] = '/';
             strcpy(project->path + strlen(project->path), temp);
         }
