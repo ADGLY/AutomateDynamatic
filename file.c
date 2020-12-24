@@ -48,15 +48,15 @@ void get_hdl_path(char* path) {
             return;
         }
         if(temp[0] != '.') {
-            path[strlen(path)] = '/';
-            if(strlen(path) + strlen(temp) + 1 >= MAX_NAME_LENGTH) {
+            if(strlen(path) + strlen(temp) + 2 >= MAX_NAME_LENGTH) {
                 fprintf(stderr, "Path too long !\n");
             }
+            if(path[strlen(path) - 1] == '/') {
+                path[strlen(path) - 1] = '\0';
+            }  
+            path[strlen(path)] = '/';
             strcpy(path + strlen(path), temp);
             path[strlen(path) - 1] = '\0';
-        }
-        else {
-            path[strlen(path)] = '\0';
         }
     }
     else {
@@ -66,6 +66,9 @@ void get_hdl_path(char* path) {
         strcpy(path, temp);
         path[strlen(path) - 1] = '\0';
     }
+    if(path[strlen(path) - 1] == '/') {
+        path[strlen(path) - 1] = '\0';
+    }  
     return;
 }
 

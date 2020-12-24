@@ -23,12 +23,24 @@ void get_project_path(project_t* project) {
             if(strlen(project->path) + 1 + strlen(temp) + 1 >= MAX_NAME_LENGTH) {
                 fprintf(stderr, "Path is too long !\n");
             }
+            if(project->path[strlen(project->path) - 1] == '/') {
+                project->path[strlen(project->path) - 1] = '\0';
+            }       
             project->path[strlen(project->path)] = '/';
             strcpy(project->path + strlen(project->path), temp);
+            project->path[strlen(project->path) - 1] = '\0';
         }
     }
-    project->path[strlen(project->path) - 1] = '\0';
-
+    else {
+        if(strlen(temp) + 1 >= MAX_NAME_LENGTH) {
+            fprintf(stderr, "Path too long !\n");
+        }
+        strcpy(project->path, temp);
+        project->path[strlen(project->path) - 1] = '\0';
+    }
+    if(project->path[strlen(project->path) - 1] == '/') {
+        project->path[strlen(project->path) - 1] = '\0';
+    }
     return;
 }
 
