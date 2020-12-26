@@ -142,7 +142,7 @@ error_t advance_in_file(regex_t* reg, regmatch_t* match, FILE* file, const char*
 
     regfree(reg);
 
-    fwrite(*offset, sizeof(char), match[0].rm_eo + 1, file);
+    fwrite(*offset, sizeof(char), (size_t)(match[0].rm_eo + 1), file);
     *offset += match[0].rm_eo + 1;
 
     return ERR_NONE;
@@ -298,7 +298,7 @@ error_t write_top_file(project_t* project) {
     const char* cur = top_file_off;
     const char* top_file = project->axi_ip.axi_files.top_file;
     const char* end = top_file + strlen(top_file);
-    size_t remaining = end - cur;
+    size_t remaining = (size_t)(end - cur);
     fwrite(top_file_off, sizeof(char), remaining, new_top_file);
 
     fclose(new_top_file);
@@ -369,7 +369,7 @@ error_t write_axi_file(project_t* project) {
     const char* cur = axi_file_off;
     const char* axi_file = project->axi_ip.axi_files.axi_file;
     const char* end = axi_file + strlen(axi_file);
-    size_t remaining = end - cur;
+    size_t remaining = (size_t)(end - cur);
     fwrite(axi_file_off, sizeof(char), remaining, new_axi_file);
     fclose(new_axi_file);
     regfree(&reg);

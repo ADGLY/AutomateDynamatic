@@ -24,8 +24,9 @@ int main(void) {
     CHECK_CALL_DO(read_axi_files(&(project.axi_ip)), "read_axi_files failed !", hdl_free(&hdl_source););
     CHECK_CALL_DO(update_files(&project), "update_files failed !", project_free(&project););
 
+
     CHECK_CALL_DO(generate_final_script(&project), "generate_final_script failed !", project_free(&project););
-    
+
     CHECK_CALL_DO(launch_script("final_script.tcl", hdl_source.exec_path), "launch_script failed !", hdl_free(&hdl_source););
 
     CHECK_CALL_DO(project_free(&project), "project_free failed !", hdl_free(&hdl_source););

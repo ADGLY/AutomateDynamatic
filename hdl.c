@@ -23,7 +23,7 @@ error_t get_end_of_ports_decl(hdl_source_t* hdl_source) {
     CHECK_COND(err != 0, ERR_REGEX, "Reg compile error !");
     err = regexec(&reg, hdl_source->source, 1, (regmatch_t*)match, 0);
     CHECK_COND_DO(err != 0, ERR_REGEX, "Reg exec error !", regfree(&reg););
-    hdl_source->end_of_ports_decl = match[0].rm_eo;
+    hdl_source->end_of_ports_decl = (size_t)match[0].rm_eo;
     regfree(&reg);
     return ERR_NONE;
 }
@@ -74,7 +74,7 @@ error_t get_arrays(hdl_source_t* hdl_source) {
     
     const char* str_match = source_off + match[0].rm_so;
     size_t str_match_len = (size_t)(match[0].rm_eo - match[0].rm_so);
-    source_off += match[0].rm_so + str_match_len;
+    source_off = (const char*)(source_off + match[0].rm_so + str_match_len);
 
     while((size_t)(source_off - hdl_source->source) <= end_of_port || err != 0) {
 
@@ -98,7 +98,7 @@ error_t get_arrays(hdl_source_t* hdl_source) {
 
         str_match = source_off + match[0].rm_so;
         str_match_len = (size_t)(match[0].rm_eo - match[0].rm_so);
-        source_off += match[0].rm_so + str_match_len;
+        source_off = (const char*)(source_off + match[0].rm_so + str_match_len);
     }
     hdl_array_t* new_arrays = realloc(arrays, array_count * sizeof(hdl_array_t));
     CHECK_COND_DO(new_arrays == NULL, ERR_MEM, "Failed to realloc !", regfree(&reg); free(arrays));
@@ -170,7 +170,7 @@ error_t get_params(hdl_source_t* hdl_source) {
 
     const char* str_match = source_off + match[0].rm_so;
     size_t str_match_len = (size_t)(match[0].rm_eo - match[0].rm_so);
-    source_off += match[0].rm_so + str_match_len;
+    source_off = (const char*)(source_off + match[0].rm_so + str_match_len);
 
 
     while((size_t)(source_off - hdl_source->source) <= end_of_port) {
@@ -191,7 +191,7 @@ error_t get_params(hdl_source_t* hdl_source) {
 
         str_match = source_off + match[0].rm_so;
         str_match_len = (size_t)(match[0].rm_eo - match[0].rm_so);
-        source_off += match[0].rm_so + str_match_len;
+        source_off = (const char*)(source_off + match[0].rm_so + str_match_len);
     }
     hdl_in_param_t* new_params = realloc(params, sizeof(hdl_in_param_t) * param_count);
     CHECK_COND_DO(new_params == NULL, ERR_MEM, "Realloc failed for params !", regfree(&reg); free(params));

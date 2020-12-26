@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <stdint.h>
 #include "file.h"
 #include "hdl.h"
 
@@ -25,6 +26,8 @@ typedef struct {
     char path[MAX_NAME_LENGTH];
     hdl_source_t* hdl_source;
     char name[MAX_NAME_LENGTH];
+    char array_size_ind;
+    uint16_t array_size;
 } project_t;
 
 error_t create_project(project_t* project, hdl_source_t* hdl_source);

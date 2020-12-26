@@ -5,7 +5,7 @@
 #include "file.h"
 #include "hdl.h"
 
-char* get_source(char* path, size_t* file_size) {
+char* get_source(const char* path, size_t* file_size) {
     if(path == NULL) {
         fprintf(stderr, "Path is NULL !\n");
         return NULL;
