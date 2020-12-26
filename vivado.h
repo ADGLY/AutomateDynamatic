@@ -29,6 +29,6 @@ typedef struct {
 
 error_t create_project(project_t* project, hdl_source_t* hdl_source);
 
-error_t launch_script(const char* name);
+error_t launch_script(const char* name, const char* exec_path);
 
 error_t project_free(project_t* project);

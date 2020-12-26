@@ -6,9 +6,7 @@
 #include "vivado.h"
 
 
-//TODO: Save execpath
 //TODO: REfactor method to get path !
-//TODO: Change alloc size !
 
 //histogram_elaborated_optimized.vhd
 ///home/antoine/Documents/Dynamatic/HistogramInt/hdl
@@ -22,14 +20,13 @@ int main(void) {
     CHECK_CALL_DO(generate_AXI_script(&project), "generate_AXI_script failed !", hdl_free(&hdl_source););
     CHECK_CALL_DO(generate_MAIN_script(&project), "generate_MAIN_script failed !", hdl_free(&hdl_source););
 
-    CHECK_CALL_DO(launch_script("generate_project.tcl"), "launch_script failed !", hdl_free(&hdl_source););
+    CHECK_CALL_DO(launch_script("generate_project.tcl", hdl_source.exec_path), "launch_script failed !", hdl_free(&hdl_source););
     CHECK_CALL_DO(read_axi_files(&(project.axi_ip)), "read_axi_files failed !", hdl_free(&hdl_source););
     CHECK_CALL_DO(update_files(&project), "update_files failed !", project_free(&project););
 
     CHECK_CALL_DO(generate_final_script(&project), "generate_final_script failed !", project_free(&project););
-    CHECK_CALL_DO(generate_final_script(&project), "generate_final_script failed !", project_free(&project););
-
-    CHECK_CALL_DO(launch_script("final_script.tcl"), "launch_script failed !", hdl_free(&hdl_source););
+    
+    CHECK_CALL_DO(launch_script("final_script.tcl", hdl_source.exec_path), "launch_script failed !", hdl_free(&hdl_source););
 
     CHECK_CALL_DO(project_free(&project), "project_free failed !", hdl_free(&hdl_source););
     return 0;

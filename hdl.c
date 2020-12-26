@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include "hdl.h"
 
 static const char* const write_ports[NB_BRAM_INTERFACE] = {
@@ -57,7 +58,7 @@ error_t get_arrays(hdl_source_t* hdl_source) {
     regmatch_t match[1];
     const char* source_off = hdl_source->source;
 
-    size_t alloc_size = 100;
+    size_t alloc_size = 10;
     hdl_array_t* arrays = calloc(alloc_size, sizeof(hdl_array_t));
     CHECK_NULL(arrays, ERR_MEM, "Failed to allocate memory for arrays !");
     size_t array_count = 0;
@@ -152,7 +153,7 @@ error_t get_params(hdl_source_t* hdl_source) {
     regex_t reg;
     regmatch_t match[1];
     const char* source_off = hdl_source->source;
-    size_t alloc_size = 100;
+    size_t alloc_size = 10;
     hdl_in_param_t* params = calloc(alloc_size, sizeof(hdl_in_param_t));
     CHECK_NULL(params, ERR_MEM, "Failed to alloc for params !");
     size_t param_count = 0;
@@ -205,8 +206,11 @@ error_t hdl_create(hdl_source_t* hdl_source) {
 
     memset(hdl_source, 0, sizeof(hdl_source_t));
 
+    char* result = getcwd(hdl_source->exec_path, MAX_NAME_LENGTH);
+    CHECK_COND(result == NULL, ERR_FILE, "getcwd error !");
+
     
-    get_hdl_path(hdl_source->dir);
+    get_hdl_path(hdl_source->dir, hdl_source->exec_path);
     char top_file_name[MAX_NAME_LENGTH];
     get_hdl_name(top_file_name);
     strcpy(hdl_source->top_file_path, hdl_source->dir);
@@ -221,7 +225,7 @@ error_t hdl_create(hdl_source_t* hdl_source) {
 error_t parse_hdl(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);
     char* source = get_source(hdl_source->top_file_path, NULL);
-    CHECK_NULL(source, ERR_FILE, "DId not manage to read source file !");
+    CHECK_NULL(source, ERR_FILE, "Did not manage to read source file !");
     hdl_source->source = source;
 
     CHECK_CALL(get_end_of_ports_decl(hdl_source), "get_end_of_ports_decl failed !");

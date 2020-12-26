@@ -35,6 +35,7 @@ typedef struct {
     size_t nb_params;
     char* source;
     size_t end_of_ports_decl;
+    char exec_path[MAX_NAME_LENGTH];
 } hdl_source_t;
 
 

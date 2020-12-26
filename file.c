@@ -1,9 +1,9 @@
 #include <stdio.h>
-#include <unistd.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include "file.h"
+#include "hdl.h"
 
 char* get_source(char* path, size_t* file_size) {
     if(path == NULL) {
@@ -34,7 +34,7 @@ char* get_source(char* path, size_t* file_size) {
     return source;
 }
 
-error_t get_hdl_path(char* path) {
+error_t get_hdl_path(char* path, const char* exec_path) {
     CHECK_PARAM(path);
 
     printf("What is the dir path of the Dynamatic output (hdl) ?\n");
@@ -42,8 +42,8 @@ error_t get_hdl_path(char* path) {
     char* result = fgets(temp, MAX_NAME_LENGTH, stdin);
     CHECK_COND(result == NULL, ERR_FILE, "There was an error while reading the input !");
     if(temp[0] != '/') {
-        char* result = getcwd(path, MAX_NAME_LENGTH);
-        CHECK_COND(result == NULL, ERR_FILE, "getcwd error !");
+        strncpy(path, exec_path, MAX_NAME_LENGTH);
+
         if(temp[0] != '.') {
             CHECK_LENGTH(strlen(path) + strlen(temp) + 2, MAX_NAME_LENGTH);
             if(path[strlen(path) - 1] == '/') {

@@ -26,7 +26,7 @@ do {                                                                            
 do {                                                                        \
     int temp = (err);                                                       \
     if((temp) != ERR_NONE) {                                                \
-        fprintf(stderr, "%s:%d | %s:%s\n", __FILE__, __LINE__, #err, msg);  \
+        fprintf(stderr, "%s:%d | %s\n", __FILE__, __LINE__, msg);           \
         return temp;                                                        \
     }                                                                       \
 } while(0);
@@ -35,7 +35,7 @@ do {                                                                        \
 do {                                                                        \
     int temp = (err);                                                       \
     if((temp) != ERR_NONE) {                                                \
-        fprintf(stderr, "%s:%d | %s:%s\n", __FILE__, __LINE__, #err, msg);  \
+        fprintf(stderr, "%s:%d | %s\n", __FILE__, __LINE__, msg);           \
         what_to_do;                                                         \
         return temp;                                                        \
     }                                                                       \

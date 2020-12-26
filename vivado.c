@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <unistd.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
 #include <stdlib.h>
@@ -15,8 +14,8 @@ error_t get_project_path(project_t* project) {
     CHECK_COND(result == NULL, ERR_FILE, "There was an error while reading the input !");
     
     if(temp[0] != '/') {
-        char* result = getcwd(project->path, MAX_NAME_LENGTH);
-        CHECK_COND(result == NULL, ERR_FILE, "getcwd error !");
+        strncpy(project->path, project->hdl_source->exec_path, MAX_NAME_LENGTH);
+        
         if(temp[0] != '.') {
             CHECK_LENGTH(strlen(project->path) + 1 + strlen(temp) + 1, MAX_NAME_LENGTH);
             if(project->path[strlen(project->path) - 1] == '/') {
@@ -55,6 +54,7 @@ error_t create_project(project_t* project, hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);
 
     memset(project, 0, sizeof(project_t));
+    project->hdl_source = hdl_source;
     CHECK_CALL(get_project_path(project), "get_project_path failed !");
     CHECK_CALL(get_project_name(project), "get_project_name failed !");
     
@@ -63,7 +63,6 @@ error_t create_project(project_t* project, hdl_source_t* hdl_source) {
     CHECK_LENGTH(strlen(project->axi_ip.path) + strlen("/ip_repo") + 1, MAX_NAME_LENGTH);
     
     strcpy(project->axi_ip.path + strlen(project->axi_ip.path), "/ip_repo");
-    project->hdl_source = hdl_source;
 
     project->axi_ip.revision = 1;
 
@@ -71,12 +70,11 @@ error_t create_project(project_t* project, hdl_source_t* hdl_source) {
 }
 
 
-error_t launch_script(const char* name) {
+error_t launch_script(const char* name, const char* exec_path) {
     CHECK_PARAM(name);
 
     char script_path[MAX_NAME_LENGTH];
-    char* result = getcwd(script_path, MAX_NAME_LENGTH);
-    CHECK_COND(result == NULL, ERR_FILE, "getcwd error !");
+    strncpy(script_path, exec_path, MAX_NAME_LENGTH);
 
     FILE* vivado_input;
     vivado_input = popen("vivado -mode tcl", "w");

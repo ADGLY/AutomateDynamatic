@@ -3,7 +3,6 @@
 #include <regex.h>
 #include <sys/types.h>
 #include <dirent.h>
-#include <unistd.h>
 #include <string.h>
 #include "tcl.h"
 
@@ -18,8 +17,8 @@ error_t generate_MAIN_script(project_t* project) {
     fprintf(tcl_script, "set_property board_part xilinx.com:zc706:part0:1.4 [current_project]\n");
     fprintf(tcl_script, "set_property target_language VHDL [current_project]\n");
     char ip_script_path[MAX_NAME_LENGTH];
-    char* result = getcwd(ip_script_path, MAX_NAME_LENGTH);
-    CHECK_COND_DO(result == NULL, ERR_FILE, "getcwd error !", fclose(tcl_script););
+    
+    strncpy(ip_script_path, project->hdl_source->exec_path, MAX_NAME_LENGTH);
 
     CHECK_COND_DO(strlen(ip_script_path) + strlen("/generate_axi_ip.tcl") + 1 >= MAX_NAME_LENGTH, ERR_NAME_TOO_LONG, "", fclose(tcl_script););
     
@@ -276,8 +275,7 @@ error_t generate_final_script(project_t* project) {
     CHECK_CALL_DO(generate_adapters(), "generate_adapters failed !", fclose(tcl_script););
 
     char adapters[MAX_NAME_LENGTH];
-    char* result = getcwd(adapters, MAX_NAME_LENGTH);
-    CHECK_COND_DO(result == NULL, ERR_FILE, "getcwd error !", fclose(tcl_script););
+    strncpy(adapters, project->hdl_source->exec_path, MAX_NAME_LENGTH);
 
     fprintf(tcl_script, "import_files -norecurse {%s/write_enb_adapter.vhd %s/address_adapter.vhd}\n", adapters, adapters);
     fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
