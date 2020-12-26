@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include "file.h"
+#include "error.h"
 
 #define NB_BRAM_INTERFACE 5
 
@@ -37,6 +38,6 @@ typedef struct {
 } hdl_source_t;
 
 
-void hdl_create(hdl_source_t* hdl_source);
-void parse_hdl(hdl_source_t* hdl_source);
-void hdl_free(hdl_source_t* hdl_source);
+error_t hdl_create(hdl_source_t* hdl_source);
+error_t parse_hdl(hdl_source_t* hdl_source);
+error_t hdl_free(hdl_source_t* hdl_source);

@@ -34,24 +34,18 @@ char* get_source(char* path, size_t* file_size) {
     return source;
 }
 
-void get_hdl_path(char* path) {
+error_t get_hdl_path(char* path) {
+    CHECK_PARAM(path);
 
     printf("What is the dir path of the Dynamatic output (hdl) ?\n");
     char temp[MAX_NAME_LENGTH];
     char* result = fgets(temp, MAX_NAME_LENGTH, stdin);
-    if(result == NULL) {
-        fprintf(stderr, "There was an error while reading the input !\n");
-    }
+    CHECK_COND(result == NULL, ERR_FILE, "There was an error while reading the input !");
     if(temp[0] != '/') {
         char* result = getcwd(path, MAX_NAME_LENGTH);
-        if(result == NULL) {
-            fprintf(stderr, "getcwd error !\n");
-            return;
-        }
+        CHECK_COND(result == NULL, ERR_FILE, "getcwd error !");
         if(temp[0] != '.') {
-            if(strlen(path) + strlen(temp) + 2 >= MAX_NAME_LENGTH) {
-                fprintf(stderr, "Path too long !\n");
-            }
+            CHECK_LENGTH(strlen(path) + strlen(temp) + 2, MAX_NAME_LENGTH);
             if(path[strlen(path) - 1] == '/') {
                 path[strlen(path) - 1] = '\0';
             }  
@@ -61,25 +55,22 @@ void get_hdl_path(char* path) {
         }
     }
     else {
-        if(strlen(temp) + 1 >= MAX_NAME_LENGTH) {
-            fprintf(stderr, "Path too long !\n");
-        }
+        CHECK_LENGTH(strlen(temp) + 1, MAX_NAME_LENGTH);
         strcpy(path, temp);
         path[strlen(path) - 1] = '\0';
     }
     if(path[strlen(path) - 1] == '/') {
         path[strlen(path) - 1] = '\0';
     }  
-    return;
+    return ERR_NONE;
 }
 
-void get_hdl_name(char* path) {
+error_t get_hdl_name(char* path) {
+    CHECK_PARAM(path);
 
     printf("What is the name of the top file ?\n");
     char* result = fgets(path, MAX_NAME_LENGTH, stdin);
-    if(result == NULL) {
-        fprintf(stderr, "There was an error while reading the input !\n");
-    }
+    CHECK_COND(result == NULL, ERR_FILE, "There was an error while reading the input !");
     path[strlen(path) - 1] = '\0';
-    return;
+    return ERR_NONE;
 }

@@ -6,154 +6,174 @@
 #include "file.h"
 #include "hdl.h"
 
+char* read_hdl_file(axi_ip_t* axi_ip, char* set_file_path, const char* file_name) {
+    char file_path[MAX_NAME_LENGTH];
+    char file_path_suffix[MAX_NAME_LENGTH];
+    strcpy(file_path, axi_ip->path);
 
-void read_top_file(axi_ip_t* axi_ip) {
-    char top_file_path[MAX_NAME_LENGTH];
-    char top_file_path_suffix[MAX_NAME_LENGTH];
-    strcpy(top_file_path, axi_ip->path);
-
-    int written = snprintf(top_file_path_suffix, MAX_NAME_LENGTH, "/%s_1.0/hdl/%s_v1_0.vhd", axi_ip->name,
-     axi_ip->name);
+    int written = snprintf(file_path_suffix, MAX_NAME_LENGTH, "/%s_1.0/hdl/%s",
+     axi_ip->name, file_name);
     if(written >= MAX_NAME_LENGTH) {
-        fprintf(stderr, "Top file path suffix is too long !\n");
+        return NULL;
     }
-    if(strlen(axi_ip->path) + strlen(top_file_path_suffix) + 1 >= MAX_NAME_LENGTH) {
-        fprintf(stderr, "Top file full path is too long !\n");
+    if(strlen(axi_ip->path) + strlen(file_path_suffix) + 1 >= MAX_NAME_LENGTH) {
+        return NULL;
     }
 
-    strcpy(top_file_path + strlen(axi_ip->path), top_file_path_suffix);
+    strcpy(file_path + strlen(axi_ip->path), file_path_suffix);
 
-    strcpy(axi_ip->axi_files.top_file_path, top_file_path);
+    strcpy(set_file_path, file_path);
     
-    char* top_file = get_source(top_file_path, NULL);
+    char* top_file = get_source(file_path, NULL);
+
+    return top_file;
+}
+
+error_t read_axi_files(axi_ip_t* axi_ip) {
+    CHECK_PARAM(axi_ip);
+
+    char top_file_name[MAX_NAME_LENGTH];
+    int written = snprintf(top_file_name, MAX_NAME_LENGTH, "%s_v1_0.vhd", axi_ip->name);
+    CHECK_LENGTH(written, MAX_NAME_LENGTH);
+    char* top_file = read_hdl_file(axi_ip, axi_ip->axi_files.top_file_path,top_file_name);
+    CHECK_NULL(top_file, ERR_FILE, "Didn't manage to read the top HDL file of the axi IP");
+
+    char axi_file_name[MAX_NAME_LENGTH];
+    written = snprintf(axi_file_name, MAX_NAME_LENGTH, "%s_v1_0_%s.vhd", axi_ip->name, axi_ip->interface_name);
+    CHECK_LENGTH(written, MAX_NAME_LENGTH);
+    char* axi_file = read_hdl_file(axi_ip, axi_ip->axi_files.axi_file_path, axi_file_name);
+    CHECK_NULL(axi_file, ERR_FILE, "Didn't manage to read the top HDL file of the axi IP");
 
     axi_ip->axi_files.top_file = top_file;
-}
-
-void read_axi_file(axi_ip_t* axi_ip) {
-    char axi_path[MAX_NAME_LENGTH];
-    char axi_path_suffix[MAX_NAME_LENGTH];
-    strcpy(axi_path, axi_ip->path);
-
-    int written = snprintf(axi_path_suffix, MAX_NAME_LENGTH, "/%s_1.0/hdl/%s_v1_0_%s.vhd", axi_ip->name,
-     axi_ip->name, axi_ip->interface_name);
-
-    if(written >= MAX_NAME_LENGTH) {
-        fprintf(stderr, "Axi path suffix is too long !\n");
-    }
-    if(strlen(axi_ip->path) + strlen(axi_path_suffix) + 1 >= MAX_NAME_LENGTH) {
-        fprintf(stderr, "Top file full path is too long !\n");
-    }
-    strcpy(axi_path + strlen(axi_ip->path), axi_path_suffix);
-
-    strcpy(axi_ip->axi_files.axi_file_path, axi_path);
-    
-    char* axi_file = get_source(axi_path, NULL);
-
-
     axi_ip->axi_files.axi_file = axi_file;
+
+    return ERR_NONE;
 }
 
-void read_axi_files(axi_ip_t* axi_ip) {
-    read_top_file(axi_ip);
-    read_axi_file(axi_ip);
-}
+error_t write_array_ports(FILE* file, bram_interface_t* interface) {
+    CHECK_PARAM(file);
+    CHECK_PARAM(interface);
 
-void write_array_ports(FILE* new_top_file, bram_interface_t* interface) {
     const char* prefix = "dynamatic_";
     
-    fprintf(new_top_file, "\t\t%s", prefix);
-    fprintf(new_top_file, "%s", interface->address);
-    fprintf(new_top_file, "%s\n", " : out std_logic_vector (31 downto 0);");
+    fprintf(file, "\t\t%s", prefix);
+    fprintf(file, "%s", interface->address);
+    fprintf(file, "%s\n", " : out std_logic_vector (31 downto 0);");
 
 
-    fprintf(new_top_file, "\t\t%s", prefix);
-    fprintf(new_top_file, "%s", interface->ce);
-    fprintf(new_top_file, "%s\n", " : out std_logic;");
+    fprintf(file, "\t\t%s", prefix);
+    fprintf(file, "%s", interface->ce);
+    fprintf(file, "%s\n", " : out std_logic;");
 
-    fprintf(new_top_file, "\t\t%s", prefix);
-    fprintf(new_top_file, "%s", interface->we);
-    fprintf(new_top_file, "%s\n", " : out std_logic;");
+    fprintf(file, "\t\t%s", prefix);
+    fprintf(file, "%s", interface->we);
+    fprintf(file, "%s\n", " : out std_logic;");
 
-    fprintf(new_top_file, "\t\t%s", prefix);
-    fprintf(new_top_file, "%s", interface->dout);
-    fprintf(new_top_file, "%s\n", " : out std_logic_vector (31 downto 0);");
+    fprintf(file, "\t\t%s", prefix);
+    fprintf(file, "%s", interface->dout);
+    fprintf(file, "%s\n", " : out std_logic_vector (31 downto 0);");
 
-    fprintf(new_top_file, "\t\t%s", prefix);
-    fprintf(new_top_file, "%s", interface->din);
-    fprintf(new_top_file, "%s\n", " : in std_logic_vector (31 downto 0);");
+    fprintf(file, "\t\t%s", prefix);
+    fprintf(file, "%s", interface->din);
+    fprintf(file, "%s\n", " : in std_logic_vector (31 downto 0);");
+
+    return ERR_NONE;
 }
 
-void write_array_ports_wo_prefix(FILE* new_top_file, bram_interface_t* interface) {
-    fprintf(new_top_file, "\t\t%s", interface->address);
-    fprintf(new_top_file, "%s\n", " : out std_logic_vector (31 downto 0);");
+error_t write_array_ports_wo_prefix(FILE* file, bram_interface_t* interface) {
+    CHECK_PARAM(file);
+    CHECK_PARAM(interface);
 
-    fprintf(new_top_file, "\t\t%s", interface->ce);
-    fprintf(new_top_file, "%s\n", " : out std_logic;");
+    fprintf(file, "\t\t%s", interface->address);
+    fprintf(file, "%s\n", " : out std_logic_vector (31 downto 0);");
 
-    fprintf(new_top_file, "\t\t%s", interface->we);
-    fprintf(new_top_file, "%s\n", " : out std_logic;");
+    fprintf(file, "\t\t%s", interface->ce);
+    fprintf(file, "%s\n", " : out std_logic;");
 
-    fprintf(new_top_file, "\t\t%s", interface->dout);
-    fprintf(new_top_file, "%s\n", " : out std_logic_vector (31 downto 0);");
+    fprintf(file, "\t\t%s", interface->we);
+    fprintf(file, "%s\n", " : out std_logic;");
 
-    fprintf(new_top_file, "\t\t%s", interface->din);
-    fprintf(new_top_file, "%s\n", " : in std_logic_vector (31 downto 0);");
+    fprintf(file, "\t\t%s", interface->dout);
+    fprintf(file, "%s\n", " : out std_logic_vector (31 downto 0);");
+
+    fprintf(file, "\t\t%s", interface->din);
+    fprintf(file, "%s\n", " : in std_logic_vector (31 downto 0);");
+
+    return ERR_NONE;
 }
 
-void write_arrays_port_map(FILE* new_top_file, bram_interface_t* interface) {
+error_t write_arrays_port_map(FILE* file, bram_interface_t* interface) {
+    CHECK_PARAM(file);
+    CHECK_PARAM(interface);
+
     const char* prefix = "dynamatic_";
     
-    fprintf(new_top_file, "\t\t%s", interface->address);
-    fprintf(new_top_file, " => %s%s,\n", prefix, interface->address);
+    fprintf(file, "\t\t%s", interface->address);
+    fprintf(file, " => %s%s,\n", prefix, interface->address);
 
-    fprintf(new_top_file, "\t\t%s", interface->ce);
-    fprintf(new_top_file, " => %s%s,\n", prefix, interface->ce);
+    fprintf(file, "\t\t%s", interface->ce);
+    fprintf(file, " => %s%s,\n", prefix, interface->ce);
 
-    fprintf(new_top_file, "\t\t%s", interface->we);
-    fprintf(new_top_file, " => %s%s,\n", prefix, interface->we);
+    fprintf(file, "\t\t%s", interface->we);
+    fprintf(file, " => %s%s,\n", prefix, interface->we);
 
-    fprintf(new_top_file, "\t\t%s", interface->dout);
-    fprintf(new_top_file, " => %s%s,\n", prefix, interface->dout);
+    fprintf(file, "\t\t%s", interface->dout);
+    fprintf(file, " => %s%s,\n", prefix, interface->dout);
 
-    fprintf(new_top_file, "\t\t%s", interface->din);
-    fprintf(new_top_file, " => %s%s,\n", prefix, interface->din);
+    fprintf(file, "\t\t%s", interface->din);
+    fprintf(file, " => %s%s,\n", prefix, interface->din);
+
+    return ERR_NONE;
 }
 
-void advance_in_file(regex_t* reg, regmatch_t* match, FILE* file, const char** offset, const char* pattern) {
+error_t advance_in_file(regex_t* reg, regmatch_t* match, FILE* file, const char** offset, const char* pattern) {
+    CHECK_PARAM(reg);
+    CHECK_PARAM(match);
+    CHECK_PARAM(file);
+    CHECK_PARAM(offset);
+    CHECK_PARAM(*offset);
+    CHECK_PARAM(pattern);
+
     int err = regcomp(reg, pattern, REG_EXTENDED);
-    if(err != 0) {
-        fprintf(stderr, "Reg compile error !\n");
-    }
+    CHECK_COND(err != 0, ERR_REGEX, "Reg compile error !");
+    
     err = regexec(reg, *offset, 1, (regmatch_t*)match, 0);
-    if(err != 0) {
-         fprintf(stderr, "Reg exec error !\n");
-    }
+    CHECK_COND(err != 0, ERR_REGEX, "Reg exec error !");
 
     regfree(reg);
 
     fwrite(*offset, sizeof(char), match[0].rm_eo + 1, file);
     *offset += match[0].rm_eo + 1;
+
+    return ERR_NONE;
 }
 
-void write_top_file(project_t* project) {
+error_t write_top_file(project_t* project) {
+    CHECK_PARAM(project);
+
     regex_t reg;
     regmatch_t match[1];
 
     FILE* new_top_file = fopen("top_file.tmp", "w");
+    CHECK_NULL(new_top_file, ERR_FILE, "Could not open file : top_file.tmp");
 
     const char* top_file_off = project->axi_ip.axi_files.top_file;
 
-    advance_in_file(&reg, match, new_top_file, &top_file_off, "-- Users to add ports here");
+    CHECK_CALL_DO(advance_in_file(&reg, match, new_top_file, &top_file_off, "-- Users to add ports here"), "advance in file failed !",
+        fclose(new_top_file););
 
     hdl_source_t* hdl_source = project->hdl_source;
+    CHECK_COND_DO(hdl_source == NULL, ERR_BAD_PARAM, "hdl_source is NULL !", fclose(new_top_file););
     
     for(size_t i = 0; i < hdl_source->nb_arrays; ++i) {
-      write_array_ports(new_top_file, &(hdl_source->arrays[i].write_ports));
-      write_array_ports(new_top_file, &(hdl_source->arrays[i].read_ports));  
+      CHECK_CALL_DO(write_array_ports(new_top_file, &(hdl_source->arrays[i].write_ports)), "wrtie_array_ports failed !", 
+        fclose(new_top_file));
+      CHECK_CALL_DO(write_array_ports(new_top_file, &(hdl_source->arrays[i].read_ports)), "wrtie_array_ports failed !",
+        fclose(new_top_file));  
     }
 
-    advance_in_file(&reg, match, new_top_file, &top_file_off, "port [(]");
+    CHECK_CALL_DO(advance_in_file(&reg, match, new_top_file, &top_file_off, "port [(]"), "advance in file failed !",
+        fclose(new_top_file););
 
     fprintf(new_top_file, "\n");
     fprintf(new_top_file, "\t\taxi_start_valid : out std_logic;\n");
@@ -169,7 +189,8 @@ void write_top_file(project_t* project) {
 
     fprintf(new_top_file, "\t\taxi_reset : out std_logic;\n");
 
-    advance_in_file(&reg, match, new_top_file, &top_file_off, "end component \\w+;");
+    CHECK_CALL_DO(advance_in_file(&reg, match, new_top_file, &top_file_off, "end component \\w+;"), "advance in file failed !",
+        fclose(new_top_file););
 
     fprintf(new_top_file, "\n");
 
@@ -186,10 +207,13 @@ void write_top_file(project_t* project) {
     fprintf(new_top_file, "\t\tend_ready:  in std_logic;\n");
 
     for(size_t i = 0; i < hdl_source->nb_arrays; ++i) {
-      write_array_ports_wo_prefix(new_top_file, &(hdl_source->arrays[i].write_ports));
-      write_array_ports_wo_prefix(new_top_file, &(hdl_source->arrays[i].read_ports));  
+        CHECK_CALL_DO(write_array_ports_wo_prefix(new_top_file, &(hdl_source->arrays[i].write_ports)), "write_array_ports_wo_prefix failed !", 
+        fclose(new_top_file));
+        CHECK_CALL_DO(write_array_ports_wo_prefix(new_top_file, &(hdl_source->arrays[i].read_ports)), "write_array_ports_wo_prefix failed !", 
+        fclose(new_top_file));
     }
 
+    CHECK_COND_DO(hdl_source->params == NULL, ERR_BAD_PARAM, "params is NULL !", fclose(new_top_file););
     for(size_t i = 0; i < hdl_source->nb_params; ++i) {
         const char* param_name = hdl_source->params[i].name;
         fprintf(new_top_file, "\t\t%s_din : in std_logic_vector (31 downto 0);\n", param_name);
@@ -219,7 +243,8 @@ void write_top_file(project_t* project) {
         fprintf(new_top_file, "\tsignal dynamatic_%s_din : std_logic_vector(31 downto 0);\n", param_name);
     }
 
-    advance_in_file(&reg, match, new_top_file, &top_file_off, "port map [(]");
+    CHECK_CALL_DO(advance_in_file(&reg, match, new_top_file, &top_file_off, "port map [(]"), "advance in file failed !",
+        fclose(new_top_file););
 
     fprintf(new_top_file, "\t\taxi_start_valid => dynamatic_start_valid,\n");
     fprintf(new_top_file, "\t\taxi_start_ready => dynamatic_start_ready,\n");
@@ -234,7 +259,8 @@ void write_top_file(project_t* project) {
 
     fprintf(new_top_file, "\t\taxi_reset => dynamatic_rst,\n");
 
-    advance_in_file(&reg, match, new_top_file, &top_file_off, "-- Add user logic here");
+    CHECK_CALL_DO(advance_in_file(&reg, match, new_top_file, &top_file_off, "-- Add user logic here"), "advance in file failed !",
+        fclose(new_top_file););
 
     fprintf(new_top_file, "\t%s_inst : %s\n", hdl_source->name, hdl_source->name);
     fprintf(new_top_file, "\tport map (\n");
@@ -249,8 +275,10 @@ void write_top_file(project_t* project) {
     fprintf(new_top_file, "\t\tend_ready => dynamatic_end_ready,\n");
 
     for(size_t i = 0; i < hdl_source->nb_arrays; ++i) {
-        write_arrays_port_map(new_top_file, &(hdl_source->arrays[i].write_ports));
-        write_arrays_port_map(new_top_file, &(hdl_source->arrays[i].read_ports));
+        CHECK_CALL_DO(write_arrays_port_map(new_top_file, &(hdl_source->arrays[i].write_ports)), "write_arrays_port_map failed !", 
+        fclose(new_top_file));
+        CHECK_CALL_DO(write_arrays_port_map(new_top_file, &(hdl_source->arrays[i].read_ports)), "write_arrays_port_map failed !", 
+        fclose(new_top_file));
     }
 
     for(size_t i = 0; i < hdl_source->nb_params; ++i) {
@@ -276,24 +304,34 @@ void write_top_file(project_t* project) {
     fclose(new_top_file);
 
     regfree(&reg);
+
+    return ERR_NONE;
 }
 
-void write_axi_file(project_t* project) {
+error_t write_axi_file(project_t* project) {
+    CHECK_PARAM(project);
+    CHECK_PARAM(project->hdl_source);
+
     regex_t reg;
     regmatch_t match[1];
 
     FILE* new_axi_file = fopen("axi_file.tmp", "w");
+    CHECK_NULL(new_axi_file, ERR_FILE, "Could not open file : axi_file.tmp");
 
     const char* axi_file_off = project->axi_ip.axi_files.axi_file;
 
     hdl_source_t* hdl_source = project->hdl_source;
-    advance_in_file(&reg, match, new_axi_file, &axi_file_off, "-- Users to add ports here");
+
+    CHECK_CALL_DO(advance_in_file(&reg, match, new_axi_file, &axi_file_off, "-- Users to add ports here"), "advance in file failed !",
+        fclose(new_axi_file););
 
     fprintf(new_axi_file, "\t\taxi_start_valid : out std_logic;\n");
     fprintf(new_axi_file, "\t\taxi_start_ready : in std_logic;\n");
     fprintf(new_axi_file, "\t\taxi_end_out : in std_logic_vector(0 downto 0);\n");
     fprintf(new_axi_file, "\t\taxi_end_valid : in std_logic;\n");
     fprintf(new_axi_file, "\t\taxi_end_ready : out std_logic;\n");
+
+    CHECK_COND_DO(hdl_source->params == NULL, ERR_BAD_PARAM, "params is NULL !", fclose(new_axi_file););
 
     for(size_t i = 0; i < hdl_source->nb_params; ++i) {
         const char* param_name = hdl_source->params[i].name;
@@ -302,18 +340,21 @@ void write_axi_file(project_t* project) {
 
     fprintf(new_axi_file, "\t\taxi_reset : out std_logic;\n");
 
-    advance_in_file(&reg, match, new_axi_file, &axi_file_off, "process [(]slv_reg0,");
+    CHECK_CALL_DO(advance_in_file(&reg, match, new_axi_file, &axi_file_off, "process [(]slv_reg0,"), "advance in file failed !",
+        fclose(new_axi_file););
     //We skip slv_reg1
     axi_file_off += strlen("slv_reg1, ");
     fprintf(new_axi_file, "axi_start_ready, axi_end_out, axi_end_valid, ");
 
-    advance_in_file(&reg, match, new_axi_file, &axi_file_off, "reg_data_out <= slv_reg1;");
+    CHECK_CALL_DO(advance_in_file(&reg, match, new_axi_file, &axi_file_off, "reg_data_out <= slv_reg1;"), "advance in file failed !",
+        fclose(new_axi_file););
     
     //We want to erase slv_reg1;
     fseek(new_axi_file, -10, SEEK_CUR);
     fprintf(new_axi_file, "(31 downto 3 => '0') & axi_start_ready & axi_end_out & axi_end_valid;\n");
 
-    advance_in_file(&reg, match, new_axi_file, &axi_file_off, "-- Add user logic here");
+    CHECK_CALL_DO(advance_in_file(&reg, match, new_axi_file, &axi_file_off, "-- Add user logic here"), "advance in file failed !",
+        fclose(new_axi_file););
 
     fprintf(new_axi_file, "\taxi_start_valid <= slv_reg0(0);\n");
     fprintf(new_axi_file, "\taxi_end_ready <= slv_reg0(1);\n");
@@ -332,35 +373,50 @@ void write_axi_file(project_t* project) {
     fwrite(axi_file_off, sizeof(char), remaining, new_axi_file);
     fclose(new_axi_file);
     regfree(&reg);
+
+    return ERR_NONE;
 }
 
-void update_top_file(project_t* project) {
-    write_top_file(project);
+error_t update_top_file(project_t* project) {
+    CHECK_PARAM(project);
+    CHECK_CALL(write_top_file(project), "write_top_file failed !");
     size_t size;
     char* new_top_file_src = get_source("top_file.tmp", &size);
+    CHECK_COND(new_top_file_src == NULL, ERR_FILE, "get_source failed !");
     remove("top_file.tmp");
 
     //Open real file and replace its content
     FILE* top_file = fopen(project->axi_ip.axi_files.top_file_path, "w");
+    CHECK_NULL(top_file, ERR_FILE, "Could not open file : top hdl file");
+
     fwrite(new_top_file_src, sizeof(char), size, top_file);
     fclose(top_file);
     free((void*)new_top_file_src);
+
+    return ERR_NONE;
 }
 
-void update_axi_file(project_t* project) {
-    write_axi_file(project);
+error_t update_axi_file(project_t* project) {
+    CHECK_PARAM(project);
+    CHECK_CALL(write_axi_file(project), "write_axi_file failed !");
+
     size_t size;
     char* new_axi_file_src = get_source("axi_file.tmp", &size);
+    CHECK_COND(new_axi_file_src == NULL, ERR_FILE, "get_source failed !");
     remove("axi_file.tmp");
 
     //Open real file and replace its content
     FILE* axi_file = fopen(project->axi_ip.axi_files.axi_file_path, "w");
+    CHECK_NULL(axi_file, ERR_FILE, "Could not open file : axi hdl file");
     fwrite(new_axi_file_src, sizeof(char), size, axi_file);
     fclose(axi_file);
     free((void*)new_axi_file_src);
+
+    return ERR_NONE;
 }
 
-void update_files(project_t* project) {
-    update_top_file(project);
-    update_axi_file(project);
+error_t update_files(project_t* project) {
+    CHECK_CALL(update_top_file(project), "update_top_file failed !");
+    CHECK_CALL(update_axi_file(project), "update_axi_file failed !");
+    return ERR_NONE;
 }

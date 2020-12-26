@@ -7,30 +7,35 @@
 #include <string.h>
 #include "tcl.h"
 
-void generate_MAIN_script(project_t* project) {
+error_t generate_MAIN_script(project_t* project) {
+    CHECK_PARAM(project);
+
     FILE* tcl_script = fopen("generate_project.tcl", "w");
+    CHECK_NULL(tcl_script, ERR_FILE, "Could not open file : generate_project.tcl");
+
     fprintf(tcl_script, "create_project %s %s/%s -part xc7z045ffg900-2\n", 
     project->name, project->path, project->name);
     fprintf(tcl_script, "set_property board_part xilinx.com:zc706:part0:1.4 [current_project]\n");
     fprintf(tcl_script, "set_property target_language VHDL [current_project]\n");
     char ip_script_path[MAX_NAME_LENGTH];
     char* result = getcwd(ip_script_path, MAX_NAME_LENGTH);
-    if(result == NULL) {
-        fprintf(stderr, "getcwd error !\n");
-    }
-    if(strlen(ip_script_path) + strlen("/generate_axi_ip.tcl") + 1 >= MAX_NAME_LENGTH) {
-        fprintf(stderr, "The path is too long !\n");
-    }
+    CHECK_COND_DO(result == NULL, ERR_FILE, "getcwd error !", fclose(tcl_script););
+
+    CHECK_LENGTH(strlen(ip_script_path) + strlen("/generate_axi_ip.tcl") + 1, MAX_NAME_LENGTH);
+    
     strcpy(ip_script_path + strlen(ip_script_path), "/generate_axi_ip.tcl");
 
     fprintf(tcl_script, "source %s", ip_script_path);
 
     fclose(tcl_script);
 
+    return ERR_NONE;
 
 }
 
-void generate_AXI_script(project_t* project) {
+error_t generate_AXI_script(project_t* project) {
+    CHECK_PARAM(project);
+
     axi_ip_t* axi_ip = &(project->axi_ip);
     strcpy(axi_ip->name, "axi_ip_dynamatic_test");
     strcpy(axi_ip->interface_name, "CSR");
@@ -42,11 +47,8 @@ void generate_AXI_script(project_t* project) {
     }
 
     FILE* tcl_script = fopen("generate_axi_ip.tcl", "w");
-    if(tcl_script == NULL) {
-        fclose(tcl_script);
-        fprintf(stderr, "The program did not manage to create the script !\n");
-        return;
-    }
+    CHECK_NULL(tcl_script, ERR_FILE, "Could not open file : generate_axi_ip.tcl");
+
     fprintf(tcl_script, "create_peripheral user.org user %s 1.0 -dir %s\n", axi_ip->name,
     axi_ip->path);
     fprintf(tcl_script, "add_peripheral_interface %s -interface_mode slave -axi_type lite [ipx::find_open_core user.org:user:%s:1.0]\n",
@@ -61,16 +63,11 @@ void generate_AXI_script(project_t* project) {
     axi_ip->name, axi_ip->path, axi_ip->path, axi_ip->name);
     fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
 
-
-
     regex_t reg;
     regmatch_t match[1];
 
     int err = regcomp(&reg, "\\w+.(vhd|v)", REG_EXTENDED);
-    if(err != 0) {
-        fprintf(stderr, "Reg compile error !\n");
-    }
-    
+    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg compile error !", fclose(tcl_script););
 
     char files_to_add[8][MAX_NAME_LENGTH];
     DIR *d;
@@ -110,14 +107,13 @@ void generate_AXI_script(project_t* project) {
     }
 
     fclose(tcl_script);
+
+    return ERR_NONE;
 }
 
-void generate_adapters() {
+error_t generate_adapters() {
     FILE* write_enb_adapter = fopen("write_enb_adapter.vhd", "w");
-    if(write_enb_adapter == NULL) {
-        fprintf(stderr, "Could not open write adapter file !\n");
-        return;
-    }
+    CHECK_NULL(write_enb_adapter, ERR_FILE, "Could not open file : write_enb_adapter.vhd");
 
     fprintf(write_enb_adapter, "library IEEE;\n");
     fprintf(write_enb_adapter, "use IEEE.STD_LOGIC_1164.ALL;\n\n");
@@ -134,10 +130,7 @@ void generate_adapters() {
     fclose(write_enb_adapter);
 
     FILE* address_adapter = fopen("address_adapter.vhd", "w");
-    if(address_adapter == NULL) {
-        fprintf(stderr, "Could not open address adapter file !\n");
-        return;
-    }
+    CHECK_NULL(address_adapter, ERR_FILE, "Could not open file : address_adapter.vhd");
 
     fprintf(address_adapter, "library IEEE;\n");
     fprintf(address_adapter, "use IEEE.STD_LOGIC_1164.ALL;\n\n");
@@ -152,10 +145,18 @@ void generate_adapters() {
     fprintf(address_adapter, "end Behavioral;\n");
 
     fclose(address_adapter);
+
+    return ERR_NONE;
 }
 
 
-void generate_memory_interface(FILE* tcl_script, axi_ip_t* axi_ip, const char* name, const char* suffix, bram_interface_t* interface) {
+error_t generate_memory_interface(FILE* tcl_script, axi_ip_t* axi_ip, const char* name, const char* suffix, bram_interface_t* interface) {
+    CHECK_PARAM(tcl_script);
+    CHECK_PARAM(axi_ip);
+    CHECK_PARAM(name);
+    CHECK_PARAM(suffix);
+    CHECK_PARAM(interface);
+
     fprintf(tcl_script, "startgroup\n");
     fprintf(tcl_script, "create_bd_cell -type ip -vlnv xilinx.com:ip:blk_mem_gen:8.4 blk_mem_gen_%s_%s\n", name, suffix);
     fprintf(tcl_script, "endgroup\n");
@@ -192,15 +193,25 @@ void generate_memory_interface(FILE* tcl_script, axi_ip_t* axi_ip, const char* n
     fprintf(tcl_script, "connect_bd_net [get_bd_pins write_enb_adapter_%s_%s/bram_write_enb] [get_bd_pins blk_mem_gen_%s_%s/wea]\n", name, suffix, name, suffix);
     fprintf(tcl_script, "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_clk_a] [get_bd_pins blk_mem_gen_%s_%s/clka]\n", name, suffix, name, suffix);
 
-
+    return ERR_NONE;
 }
 
-void generate_memory(FILE* tcl_script, hdl_array_t* arr, axi_ip_t* axi_ip) {
-    generate_memory_interface(tcl_script, axi_ip, arr->name, "write", &(arr->write_ports));
-    generate_memory_interface(tcl_script, axi_ip, arr->name, "read", &(arr->read_ports));
+error_t generate_memory(FILE* tcl_script, hdl_array_t* arr, axi_ip_t* axi_ip) {
+    CHECK_PARAM(tcl_script);
+    CHECK_PARAM(arr);
+    CHECK_PARAM(axi_ip);
+
+    CHECK_CALL(generate_memory_interface(tcl_script, axi_ip, arr->name, "write", &(arr->write_ports)), "generate_memory_interface failed !");
+    CHECK_CALL(generate_memory_interface(tcl_script, axi_ip, arr->name, "read", &(arr->read_ports)), "generate_memory_interface failed !");
+
+    return ERR_NONE;
 }
 
-void memory_connection_automation(FILE* tcl_script, hdl_source_t* hdl_source) {
+error_t memory_connection_automation(FILE* tcl_script, hdl_source_t* hdl_source) {
+    CHECK_PARAM(tcl_script);
+    CHECK_PARAM(hdl_source);
+    CHECK_PARAM(hdl_source->arrays);
+
     for(size_t i = 0; i < hdl_source->nb_arrays; ++i) {
         hdl_array_t* arr = &(hdl_source->arrays[i]);
 
@@ -216,17 +227,21 @@ void memory_connection_automation(FILE* tcl_script, hdl_source_t* hdl_source) {
         fprintf(tcl_script, " Slave {/axi_bram_ctrl_%s_read/S_AXI} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}", arr->name);
         fprintf(tcl_script, "  [get_bd_intf_pins axi_bram_ctrl_%s_read/S_AXI]\n", arr->name);
     }
+
+    return ERR_NONE;
     
 }
 
-void generate_final_script(project_t* project) {
+error_t generate_final_script(project_t* project) {
+    CHECK_PARAM(project);
+    CHECK_PARAM(project->hdl_source);
+    CHECK_PARAM(project->hdl_source->arrays);
+    CHECK_PARAM(project->hdl_source->params);
+
     axi_ip_t* axi_ip = &(project->axi_ip);
     FILE* tcl_script = fopen("final_script.tcl", "w");
-    if(tcl_script == NULL) {
-        fclose(tcl_script);
-        fprintf(stderr, "The program did not manage to create the script !\n");
-        return;
-    }
+    CHECK_NULL(tcl_script, ERR_FILE, "Could not open file : final_script.tcl");
+
     //open_project /home/antoine/Documents/ProjetSemestre/Automation/AutomateDynamatic/Vivado_final_test/ip_repo/edit_axi_ip_dynamatic_test_v1_0.xpr
     //Double the open project ?
     fprintf(tcl_script, "open_project %s/edit_%s_v1_0.xpr\n", axi_ip->path, axi_ip->name);
@@ -258,14 +273,11 @@ void generate_final_script(project_t* project) {
     fprintf(tcl_script, "create_bd_cell -type ip -vlnv user.org:user:%s:1.0 %s_0\n", axi_ip->name, axi_ip->name);
     fprintf(tcl_script, "endgroup\n");
 
-    generate_adapters();
+    CHECK_CALL_DO(generate_adapters(), "generate_adapters failed !", fclose(tcl_script););
 
     char adapters[MAX_NAME_LENGTH];
     char* result = getcwd(adapters, MAX_NAME_LENGTH);
-    if(result == NULL) {
-        fprintf(stderr, "getcwd error !\n");
-        return;
-    }
+    CHECK_COND_DO(result == NULL, ERR_FILE, "getcwd error !", fclose(tcl_script););
 
     fprintf(tcl_script, "import_files -norecurse {%s/write_enb_adapter.vhd %s/address_adapter.vhd}\n", adapters, adapters);
     fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
@@ -273,7 +285,7 @@ void generate_final_script(project_t* project) {
 
 
     for(size_t i = 0; i < project->hdl_source->nb_arrays; ++i) {
-        generate_memory(tcl_script, &(project->hdl_source->arrays[i]), axi_ip);
+        CHECK_CALL_DO(generate_memory(tcl_script, &(project->hdl_source->arrays[i]), axi_ip), "generate_memory failed !", fclose(tcl_script););
     }
 
 
@@ -290,7 +302,7 @@ void generate_final_script(project_t* project) {
     fprintf(tcl_script, " -config {make_external \"FIXED_IO, DDR\" apply_board_preset \"0\" Master \"Disable\" Slave \"Disable\" }  [get_bd_cells processing_system7_0]\n");
     
     fprintf(tcl_script, "startgroup\n");
-    memory_connection_automation(tcl_script, project->hdl_source);
+    CHECK_CALL_DO(memory_connection_automation(tcl_script, project->hdl_source), "memory_connection_automation failed !", fclose(tcl_script););
     fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7_0/M_AXI_GP0}");
     fprintf(tcl_script, " Slave {/%s_0/%s} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}", axi_ip->name, axi_ip->interface_name);
     fprintf(tcl_script, "  [get_bd_intf_pins %s_0/%s]\n", axi_ip->name, axi_ip->interface_name);
@@ -306,6 +318,8 @@ void generate_final_script(project_t* project) {
     fprintf(tcl_script, "save_bd_design\n");
 
     fclose(tcl_script);
+
+    return ERR_NONE;
 }
 
 

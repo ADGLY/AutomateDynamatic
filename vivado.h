@@ -27,8 +27,8 @@ typedef struct {
     char name[MAX_NAME_LENGTH];
 } project_t;
 
-void create_project(project_t* project, hdl_source_t* hdl_source);
+error_t create_project(project_t* project, hdl_source_t* hdl_source);
 
-void launch_script(const char* name);
+error_t launch_script(const char* name);
 
-void project_free(project_t* project);
+error_t project_free(project_t* project);
