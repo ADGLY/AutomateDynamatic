@@ -40,9 +40,9 @@ error_t read_axi_files(axi_ip_t* axi_ip) {
 
     char axi_file_name[MAX_NAME_LENGTH];
     written = snprintf(axi_file_name, MAX_NAME_LENGTH, "%s_v1_0_%s.vhd", axi_ip->name, axi_ip->interface_name);
-    CHECK_LENGTH(written, MAX_NAME_LENGTH);
+    CHECK_COND_DO(written >= MAX_NAME_LENGTH, ERR_NAME_TOO_LONG, "Name too long !", free((void*)top_file););
     char* axi_file = read_hdl_file(axi_ip, axi_ip->axi_files.axi_file_path, axi_file_name);
-    CHECK_NULL(axi_file, ERR_FILE, "Didn't manage to read the top HDL file of the axi IP");
+    CHECK_COND_DO(axi_file == NULL, ERR_FILE, "Didn't manage to read the top HDL file of the axi IP", free((void*)top_file););
 
     axi_ip->axi_files.top_file = top_file;
     axi_ip->axi_files.axi_file = axi_file;
@@ -138,7 +138,7 @@ error_t advance_in_file(regex_t* reg, regmatch_t* match, FILE* file, const char*
     CHECK_COND(err != 0, ERR_REGEX, "Reg compile error !");
     
     err = regexec(reg, *offset, 1, (regmatch_t*)match, 0);
-    CHECK_COND(err != 0, ERR_REGEX, "Reg exec error !");
+    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg exec error !", regfree(reg););
 
     regfree(reg);
 
@@ -387,7 +387,7 @@ error_t update_top_file(project_t* project) {
 
     //Open real file and replace its content
     FILE* top_file = fopen(project->axi_ip.axi_files.top_file_path, "w");
-    CHECK_NULL(top_file, ERR_FILE, "Could not open file : top hdl file");
+    CHECK_COND_DO(top_file == NULL, ERR_FILE, "Could not open file : top hdl file", free((void*)new_top_file_src); fclose(top_file););
 
     fwrite(new_top_file_src, sizeof(char), size, top_file);
     fclose(top_file);
@@ -407,7 +407,7 @@ error_t update_axi_file(project_t* project) {
 
     //Open real file and replace its content
     FILE* axi_file = fopen(project->axi_ip.axi_files.axi_file_path, "w");
-    CHECK_NULL(axi_file, ERR_FILE, "Could not open file : axi hdl file");
+    CHECK_COND_DO(axi_file == NULL, ERR_FILE, "Could not open file : axi hdl file", free((void*)new_axi_file_src); fclose(axi_file););
     fwrite(new_axi_file_src, sizeof(char), size, axi_file);
     fclose(axi_file);
     free((void*)new_axi_file_src);

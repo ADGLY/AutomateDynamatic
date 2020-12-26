@@ -21,7 +21,7 @@ error_t generate_MAIN_script(project_t* project) {
     char* result = getcwd(ip_script_path, MAX_NAME_LENGTH);
     CHECK_COND_DO(result == NULL, ERR_FILE, "getcwd error !", fclose(tcl_script););
 
-    CHECK_LENGTH(strlen(ip_script_path) + strlen("/generate_axi_ip.tcl") + 1, MAX_NAME_LENGTH);
+    CHECK_COND_DO(strlen(ip_script_path) + strlen("/generate_axi_ip.tcl") + 1 >= MAX_NAME_LENGTH, ERR_NAME_TOO_LONG, "", fclose(tcl_script););
     
     strcpy(ip_script_path + strlen(ip_script_path), "/generate_axi_ip.tcl");
 

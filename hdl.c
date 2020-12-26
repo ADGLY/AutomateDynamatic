@@ -21,7 +21,7 @@ error_t get_end_of_ports_decl(hdl_source_t* hdl_source) {
     int err = regcomp(&reg, "end;", REG_EXTENDED);
     CHECK_COND(err != 0, ERR_REGEX, "Reg compile error !");
     err = regexec(&reg, hdl_source->source, 1, (regmatch_t*)match, 0);
-    CHECK_COND(err != 0, ERR_REGEX, "Reg exec error !");
+    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg exec error !", regfree(&reg););
     hdl_source->end_of_ports_decl = match[0].rm_eo;
     regfree(&reg);
     return ERR_NONE;
@@ -34,7 +34,8 @@ error_t get_entity_name(hdl_source_t* hdl_source) {
     int err = regcomp(&reg, "entity[ ]\\w+[ ]is", REG_EXTENDED);
     CHECK_COND(err != 0, ERR_REGEX, "Reg compile error !");
     err = regexec(&reg, hdl_source->source, 1, (regmatch_t*)match, 0);
-    CHECK_COND(err != 0, ERR_REGEX, "Reg exec error !");
+    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg exec error !", regfree(&reg));
+    regfree(&reg);
 
     #define NAME_START_OFF 7
     #define NAME_END 10
@@ -46,7 +47,6 @@ error_t get_entity_name(hdl_source_t* hdl_source) {
     CHECK_LENGTH(name_len, MAX_NAME_LENGTH);
     strncpy(hdl_source->name, name_start, name_len);
     hdl_source->name[name_len + 1] = '\0';
-    regfree(&reg);
     return ERR_NONE;
 }
 
@@ -65,11 +65,11 @@ error_t get_arrays(hdl_source_t* hdl_source) {
     size_t end_of_port = hdl_source->end_of_ports_decl;
 
     int err = regcomp(&reg, "\\w+_address0", REG_EXTENDED);
-    CHECK_COND(err != 0, ERR_REGEX, "Reg compile error !");
+    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg compile error !", free((void*)arrays););
 
     //First part of the while loop
     err = regexec(&reg, source_off, 1, (regmatch_t*)match, 0);
-    CHECK_COND(err != 0, ERR_REGEX, "Reg exec error !");
+    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg exec error !", regfree(&reg); free((void*)arrays););
     
     const char* str_match = source_off + match[0].rm_so;
     size_t str_match_len = (size_t)(match[0].rm_eo - match[0].rm_so);
@@ -78,7 +78,7 @@ error_t get_arrays(hdl_source_t* hdl_source) {
     while((size_t)(source_off - hdl_source->source) <= end_of_port || err != 0) {
 
         size_t name_len = str_match_len - 9;
-        CHECK_LENGTH(name_len, MAX_NAME_LENGTH);
+        CHECK_COND_DO(name_len >= MAX_NAME_LENGTH, ERR_NAME_TOO_LONG, "", regfree(&reg); free((void*)arrays););
 
 
         strncpy(arrays[array_count].name, str_match, name_len);
@@ -88,25 +88,19 @@ error_t get_arrays(hdl_source_t* hdl_source) {
         if(array_count == alloc_size) {
             alloc_size*=2;
             hdl_array_t* new_arrays = realloc(arrays, alloc_size * sizeof(hdl_array_t));
-            CHECK_COND_DO(new_arrays == NULL, ERR_MEM, "Failed to realloc !", free(arrays));
+            CHECK_COND_DO(new_arrays == NULL, ERR_MEM, "Failed to realloc !", regfree(&reg); free(arrays););
             arrays = new_arrays;
         }
 
         err = regexec(&reg, source_off, 1, (regmatch_t*)match, 0);
         CHECK_COND(err != 0 && array_count > 1, ERR_REGEX, "Reg exec error !");
-        /*if(err != 0) {
-            if(array_count > 1 ) {
-                fprintf(stderr, "Reg exec error !\n");
-            }
-            return;
-        }*/
 
         str_match = source_off + match[0].rm_so;
         str_match_len = (size_t)(match[0].rm_eo - match[0].rm_so);
         source_off += match[0].rm_so + str_match_len;
     }
     hdl_array_t* new_arrays = realloc(arrays, array_count * sizeof(hdl_array_t));
-    CHECK_COND_DO(new_arrays == NULL, ERR_MEM, "Failed to realloc !", free(arrays));
+    CHECK_COND_DO(new_arrays == NULL, ERR_MEM, "Failed to realloc !", regfree(&reg); free(arrays));
     hdl_source->arrays = new_arrays;
     hdl_source->nb_arrays = array_count;
     regfree(&reg);
@@ -166,12 +160,12 @@ error_t get_params(hdl_source_t* hdl_source) {
 
 
     int err = regcomp(&reg, "\\w+_din ", REG_EXTENDED);
-    CHECK_COND(err != 0, ERR_REGEX, "Reg compile error !");
+    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg compile error !", free(params););
 
 
     //first iter
     err = regexec(&reg, source_off, 1, (regmatch_t*)match, 0);
-    CHECK_COND(err != 0, ERR_REGEX, "Reg exec error !");
+    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg exec error !", regfree(&reg); free(params););
 
     const char* str_match = source_off + match[0].rm_so;
     size_t str_match_len = (size_t)(match[0].rm_eo - match[0].rm_so);
@@ -186,20 +180,20 @@ error_t get_params(hdl_source_t* hdl_source) {
 
         if(param_count == alloc_size) {
             hdl_in_param_t* new_params = realloc(params, sizeof(hdl_in_param_t) * alloc_size * 2);
-            CHECK_COND_DO(new_params == NULL, ERR_MEM, "Realloc failed for params !", free(params));
+            CHECK_COND_DO(new_params == NULL, ERR_MEM, "Realloc failed for params !", regfree(&reg); free(params););
             params = new_params;
             alloc_size *= 2;
         }
 
         err = regexec(&reg, source_off, 1, (regmatch_t*)match, 0);
-        CHECK_COND(err != 0 && param_count > 1, ERR_REGEX, "Reg exec error !");
+        CHECK_COND_DO(err != 0 && param_count > 1, ERR_REGEX, "Reg exec error !", regfree(&reg); free(params););
 
         str_match = source_off + match[0].rm_so;
         str_match_len = (size_t)(match[0].rm_eo - match[0].rm_so);
         source_off += match[0].rm_so + str_match_len;
     }
     hdl_in_param_t* new_params = realloc(params, sizeof(hdl_in_param_t) * param_count);
-    CHECK_COND_DO(new_params == NULL, ERR_MEM, "Realloc failed for params !", free(params));
+    CHECK_COND_DO(new_params == NULL, ERR_MEM, "Realloc failed for params !", regfree(&reg); free(params));
     hdl_source->params = new_params;
     hdl_source->nb_params = param_count;
     regfree(&reg);
