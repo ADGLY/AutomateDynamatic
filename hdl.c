@@ -206,16 +206,17 @@ error_t hdl_create(hdl_source_t* hdl_source) {
 
     memset(hdl_source, 0, sizeof(hdl_source_t));
 
-    char* result = getcwd(hdl_source->exec_path, MAX_NAME_LENGTH);
+    char* result = getcwd(hdl_source->exec_path, MAX_PATH_LENGTH);
     CHECK_COND(result == NULL, ERR_FILE, "getcwd error !");
 
-    
-    get_hdl_path(hdl_source->dir, hdl_source->exec_path);
+    CHECK_CALL(get_path(hdl_source->dir, "What is the directory of the Dynamatic output (hdl) ?"), "get_apth failed !");
+
     char top_file_name[MAX_NAME_LENGTH];
-    get_hdl_name(top_file_name);
+    CHECK_CALL(get_name(top_file_name, "What is the name of the top file ?"), "get_name failed !");
+
     strcpy(hdl_source->top_file_path, hdl_source->dir);
     hdl_source->top_file_path[strlen(hdl_source->dir)] = '/';
-    if(strlen(top_file_name) + strlen(hdl_source->dir) + 2 >= MAX_NAME_LENGTH) {
+    if(strlen(top_file_name) + strlen(hdl_source->dir) + 2 >= MAX_PATH_LENGTH) {
         fprintf(stderr, "Name too long !\n");
     }
     strcpy(hdl_source->top_file_path + strlen(hdl_source->dir) + 1, top_file_name);

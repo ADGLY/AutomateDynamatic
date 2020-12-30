@@ -1,16 +1,15 @@
 #include <stdio.h>
+#include <limits.h>
 #include "file.h"
 #include "hdl.h"
 #include "axi_files.h"
 #include "tcl.h"
 #include "vivado.h"
 
-
-//TODO: REfactor method to get path !
-
 //histogram_elaborated_optimized.vhd
 ///home/antoine/Documents/Dynamatic/HistogramInt/hdl
 int main(void) {
+    
     hdl_source_t hdl_source;
     CHECK_CALL(hdl_create(&hdl_source), "hdl_create failed !");
     CHECK_CALL(parse_hdl(&hdl_source), "parse_hdl failed !");

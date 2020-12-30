@@ -7,7 +7,7 @@
 #include "hdl.h"
 
 char* read_hdl_file(axi_ip_t* axi_ip, char* set_file_path, const char* file_name) {
-    char file_path[MAX_NAME_LENGTH];
+    char file_path[MAX_PATH_LENGTH];
     char file_path_suffix[MAX_NAME_LENGTH];
     strcpy(file_path, axi_ip->path);
 
@@ -16,7 +16,7 @@ char* read_hdl_file(axi_ip_t* axi_ip, char* set_file_path, const char* file_name
     if(written >= MAX_NAME_LENGTH) {
         return NULL;
     }
-    if(strlen(axi_ip->path) + strlen(file_path_suffix) + 1 >= MAX_NAME_LENGTH) {
+    if(strlen(axi_ip->path) + strlen(file_path_suffix) + 1 >= MAX_PATH_LENGTH) {
         return NULL;
     }
 

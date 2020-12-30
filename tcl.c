@@ -17,11 +17,11 @@ error_t generate_MAIN_script(project_t* project) {
     project->name, project->path, project->name);
     fprintf(tcl_script, "set_property board_part xilinx.com:zc706:part0:1.4 [current_project]\n");
     fprintf(tcl_script, "set_property target_language VHDL [current_project]\n");
-    char ip_script_path[MAX_NAME_LENGTH];
+    char ip_script_path[MAX_PATH_LENGTH];
     
-    strncpy(ip_script_path, project->hdl_source->exec_path, MAX_NAME_LENGTH);
+    strncpy(ip_script_path, project->hdl_source->exec_path, MAX_PATH_LENGTH);
 
-    CHECK_COND_DO(strlen(ip_script_path) + strlen("/generate_axi_ip.tcl") + 1 >= MAX_NAME_LENGTH, ERR_NAME_TOO_LONG, "", fclose(tcl_script););
+    CHECK_COND_DO(strlen(ip_script_path) + strlen("/generate_axi_ip.tcl") + 1 >= MAX_PATH_LENGTH, ERR_NAME_TOO_LONG, "", fclose(tcl_script););
     
     strcpy(ip_script_path + strlen(ip_script_path), "/generate_axi_ip.tcl");
 
@@ -71,10 +71,10 @@ error_t generate_AXI_script(project_t* project) {
 
     char files_to_add[8][MAX_NAME_LENGTH];
     DIR *d;
-    struct dirent *dir;
     d = opendir(project->hdl_source->dir);
     int nb_files = 0;
     if (d != NULL) {
+        struct dirent *dir;
         while ((dir = readdir(d)) != NULL) {
             if(nb_files == 8) {
                 fprintf(stderr, "Too many files !\n");
@@ -290,8 +290,8 @@ error_t generate_final_script(project_t* project) {
 
     CHECK_CALL_DO(generate_adapters(array_size), "generate_adapters failed !", fclose(tcl_script););
     
-    char adapters[MAX_NAME_LENGTH];
-    strncpy(adapters, project->hdl_source->exec_path, MAX_NAME_LENGTH);
+    char adapters[MAX_PATH_LENGTH];
+    strncpy(adapters, project->hdl_source->exec_path, MAX_PATH_LENGTH);
 
     fprintf(tcl_script, "import_files -norecurse {%s/write_enb_adapter.vhd %s/address_adapter.vhd}\n", adapters, adapters);
     fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
