@@ -24,7 +24,7 @@ do {                                                                            
 
 #define CHECK_CALL(err, msg)                                                \
 do {                                                                        \
-    int temp = (err);                                                       \
+    error_t temp = (err);                                                   \
     if((temp) != ERR_NONE) {                                                \
         fprintf(stderr, "%s:%d | %s\n", __FILE__, __LINE__, msg);           \
         return temp;                                                        \
@@ -33,7 +33,7 @@ do {                                                                        \
 
 #define CHECK_CALL_DO(err, msg, what_to_do)                                 \
 do {                                                                        \
-    int temp = (err);                                                       \
+    error_t temp = (err);                                                   \
     if((temp) != ERR_NONE) {                                                \
         fprintf(stderr, "%s:%d | %s\n", __FILE__, __LINE__, msg);           \
         what_to_do;                                                         \

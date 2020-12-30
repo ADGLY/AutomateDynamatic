@@ -6,10 +6,12 @@
 #include "tcl.h"
 #include "vivado.h"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wsign-conversion"
+
 //histogram_elaborated_optimized.vhd
 ///home/antoine/Documents/Dynamatic/HistogramInt/hdl
 int main(void) {
-    
     hdl_source_t hdl_source;
     CHECK_CALL(hdl_create(&hdl_source), "hdl_create failed !");
     CHECK_CALL(parse_hdl(&hdl_source), "parse_hdl failed !");
@@ -23,6 +25,7 @@ int main(void) {
     CHECK_CALL_DO(read_axi_files(&(project.axi_ip)), "read_axi_files failed !", hdl_free(&hdl_source););
     CHECK_CALL_DO(update_files(&project), "update_files failed !", project_free(&project););
 
+    
 
     CHECK_CALL_DO(generate_final_script(&project), "generate_final_script failed !", project_free(&project););
 
@@ -31,3 +34,5 @@ int main(void) {
     CHECK_CALL_DO(project_free(&project), "project_free failed !", hdl_free(&hdl_source););
     return 0;
 }
+
+#pragma clang diagnostic pop
