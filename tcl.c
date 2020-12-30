@@ -5,6 +5,9 @@
 #include <dirent.h>
 #include <string.h>
 #include <inttypes.h>
+#include <stdlib.h>
+#include <errno.h>
+#include "vivado_hls.h"
 #include "tcl.h"
 
 error_t generate_MAIN_script(project_t* project) {
@@ -160,7 +163,8 @@ error_t generate_memory_interface(FILE* tcl_script, axi_ip_t* axi_ip, const char
     CHECK_PARAM(interface);
 
     fprintf(tcl_script, "startgroup\n");
-    fprintf(tcl_script, "create_bd_cell -type ip -vlnv xilinx.com:ip:blk_mem_gen:8.4 blk_mem_gen_%s_%s\n", name, suffix);
+    fprintf(tcl_script, "set latest_ver [get_ipdefs -filter {NAME == blk_mem_gen}]\n");
+    fprintf(tcl_script, "create_bd_cell -type ip -vlnv $latest_ver blk_mem_gen_%s_%s\n", name, suffix);
     fprintf(tcl_script, "endgroup\n");
 
     fprintf(tcl_script, "set_property -dict [list CONFIG.Memory_Type {True_Dual_Port_RAM} ");
@@ -179,7 +183,8 @@ error_t generate_memory_interface(FILE* tcl_script, axi_ip_t* axi_ip, const char
     fprintf(tcl_script, "connect_bd_net [get_bd_pins %s_0/dynamatic_%s] [get_bd_pins blk_mem_gen_%s_%s/dinb]\n", axi_ip->name, interface->dout, name, suffix);
 
     fprintf(tcl_script, "startgroup\n");
-    fprintf(tcl_script, "create_bd_cell -type ip -vlnv xilinx.com:ip:axi_bram_ctrl:4.1 axi_bram_ctrl_%s_%s\n", name, suffix);
+    fprintf(tcl_script, "set latest_ver [get_ipdefs -filter {NAME == axi_bram_ctrl}]\n");
+    fprintf(tcl_script, "create_bd_cell -type ip -vlnv $latest_ver axi_bram_ctrl_%s_%s\n", name, suffix);
     fprintf(tcl_script, "endgroup\n");
 
     fprintf(tcl_script, "set_property -dict [list CONFIG.PROTOCOL {AXI4LITE} CONFIG.SINGLE_PORT_BRAM {1} CONFIG.ECC_TYPE {0}] [get_bd_cells axi_bram_ctrl_%s_%s]\n", name, suffix);
@@ -201,10 +206,12 @@ error_t generate_memory(FILE* tcl_script, hdl_array_t* arr, axi_ip_t* axi_ip, si
     CHECK_PARAM(tcl_script);
     CHECK_PARAM(arr);
     CHECK_PARAM(axi_ip);
-
-    CHECK_CALL(generate_memory_interface(tcl_script, axi_ip, arr->name, "write", &(arr->write_ports), array_size), "generate_memory_interface failed !");
-    CHECK_CALL(generate_memory_interface(tcl_script, axi_ip, arr->name, "read", &(arr->read_ports), array_size), "generate_memory_interface failed !");
-
+    if(arr->write) {
+        CHECK_CALL(generate_memory_interface(tcl_script, axi_ip, arr->name, "write", &(arr->write_ports), array_size), "generate_memory_interface failed !");
+    }
+    if(arr->read) {
+        CHECK_CALL(generate_memory_interface(tcl_script, axi_ip, arr->name, "read", &(arr->read_ports), array_size), "generate_memory_interface failed !");
+    }
     return ERR_NONE;
 }
 
@@ -217,20 +224,23 @@ error_t memory_connection_automation(FILE* tcl_script, hdl_source_t* hdl_source)
         hdl_array_t* arr = &(hdl_source->arrays[i]);
 
         //Write
-        fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config");
-        fprintf(tcl_script, " { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7_0/M_AXI_GP0}");
-        fprintf(tcl_script, " Slave {/axi_bram_ctrl_%s_write/S_AXI} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}", arr->name);
-        fprintf(tcl_script, "  [get_bd_intf_pins axi_bram_ctrl_%s_write/S_AXI]\n", arr->name);
+        if(arr->write) {
+            fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config");
+            fprintf(tcl_script, " { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7_0/M_AXI_GP0}");
+            fprintf(tcl_script, " Slave {/axi_bram_ctrl_%s_write/S_AXI} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}", arr->name);
+            fprintf(tcl_script, "  [get_bd_intf_pins axi_bram_ctrl_%s_write/S_AXI]\n", arr->name);
+        }
         
         //Read
-        fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config");
-        fprintf(tcl_script, " { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7_0/M_AXI_GP0}");
-        fprintf(tcl_script, " Slave {/axi_bram_ctrl_%s_read/S_AXI} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}", arr->name);
-        fprintf(tcl_script, "  [get_bd_intf_pins axi_bram_ctrl_%s_read/S_AXI]\n", arr->name);
+        if(arr->read) {
+            fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config");
+            fprintf(tcl_script, " { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7_0/M_AXI_GP0}");
+            fprintf(tcl_script, " Slave {/axi_bram_ctrl_%s_read/S_AXI} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}", arr->name);
+            fprintf(tcl_script, "  [get_bd_intf_pins axi_bram_ctrl_%s_read/S_AXI]\n", arr->name);
+        }
     }
 
     return ERR_NONE;
-    
 }
 
 error_t generate_final_script(project_t* project) {
@@ -306,7 +316,8 @@ error_t generate_final_script(project_t* project) {
 
     //Specific to Zynq
     fprintf(tcl_script, "startgroup\n");
-    fprintf(tcl_script, "create_bd_cell -type ip -vlnv xilinx.com:ip:processing_system7:5.5 processing_system7_0\n");
+    fprintf(tcl_script, "set latest_ver [get_ipdefs -filter {NAME == processing_system7}]\n");
+    fprintf(tcl_script, "create_bd_cell -type ip -vlnv $latest_ver processing_system7_0\n");
     fprintf(tcl_script, "endgroup\n");
     fprintf(tcl_script, "startgroup\n");
     fprintf(tcl_script, "set_property -dict [list CONFIG.preset {ZC706}] [get_bd_cells processing_system7_0]\n");
@@ -325,19 +336,131 @@ error_t generate_final_script(project_t* project) {
 
     for(size_t i = 0; i < project->hdl_source->nb_arrays; ++i) {
         hdl_array_t* arr = &(project->hdl_source->arrays[i]);
-        fprintf(tcl_script, "connect_bd_net [get_bd_pins blk_mem_gen_%s_write/clkb] [get_bd_pins processing_system7_0/FCLK_CLK0]\n", arr->name);
-        fprintf(tcl_script, "connect_bd_net [get_bd_pins blk_mem_gen_%s_read/clkb] [get_bd_pins processing_system7_0/FCLK_CLK0]\n", arr->name);
+        if(arr->write) {
+            fprintf(tcl_script, "connect_bd_net [get_bd_pins blk_mem_gen_%s_write/clkb] [get_bd_pins processing_system7_0/FCLK_CLK0]\n", arr->name);
+        }
+        if(arr->read) {
+            fprintf(tcl_script, "connect_bd_net [get_bd_pins blk_mem_gen_%s_read/clkb] [get_bd_pins processing_system7_0/FCLK_CLK0]\n", arr->name);
+        }
     }
 
     for(size_t i = 0; i < project->hdl_source->nb_arrays; ++i) {
         hdl_array_t* arr = &(project->hdl_source->arrays[i]);
-        fprintf(tcl_script, "set_property range " "%" PRIu16 "%c"  " [get_bd_addr_segs {processing_system7_0/Data/SEG_axi_bram_ctrl_%s_read_Mem0}]\n",
+
+        if(arr->read) {
+            fprintf(tcl_script, "set_property range " "%" PRIu16 "%c"  " [get_bd_addr_segs {processing_system7_0/Data/SEG_axi_bram_ctrl_%s_read_Mem0}]\n",
             project->array_size, project->array_size_ind, arr->name);
-        fprintf(tcl_script, "set_property range " "%" PRIu16 "%c"  " [get_bd_addr_segs {processing_system7_0/Data/SEG_axi_bram_ctrl_%s_write_Mem0}]\n",
+        }
+        if(arr->write) {
+            fprintf(tcl_script, "set_property range " "%" PRIu16 "%c"  " [get_bd_addr_segs {processing_system7_0/Data/SEG_axi_bram_ctrl_%s_write_Mem0}]\n",
             project->array_size, project->array_size_ind, arr->name);
+        }
     }
 
     fprintf(tcl_script, "save_bd_design\n");
+
+    fclose(tcl_script);
+
+    return ERR_NONE;
+}
+
+void free_files_to_add(char** files_to_add, uint8_t last) {
+    if(files_to_add == NULL) {
+        return;
+    }
+    for(uint8_t i = 0; i < last; ++i) {
+        if(files_to_add[i] != NULL) {
+            free(files_to_add[i]);
+        }
+    }
+    free(files_to_add);
+}
+
+error_t allocate_files_to_add(char*** files_to_add, uint8_t* last) {
+    CHECK_PARAM(files_to_add);
+    CHECK_PARAM(*files_to_add);
+    CHECK_PARAM(last);
+
+    char** new_files_to_add = realloc(*files_to_add, *last * 2);
+    CHECK_COND_DO(new_files_to_add == NULL, ERR_MEM, "Could not realloc for files_to_add !", free_files_to_add(*files_to_add, *last););
+    *files_to_add = new_files_to_add;
+
+    for(uint8_t i = *last; i < *last * 2; ++i) {
+        files_to_add[i] = calloc(MAX_PATH_LENGTH, sizeof(char));
+        CHECK_COND_DO(files_to_add[i], ERR_MEM, "Could not realloc for files_to_add !", free_files_to_add(*files_to_add, i););
+    }
+    *last = *last * 2;
+    return ERR_NONE;
+}
+
+error_t generate_hls_script(vivado_hls_t* hls) {
+    CHECK_PARAM(hls);
+
+    FILE* tcl_script = fopen("hls_script.tcl", "w");
+    CHECK_NULL(tcl_script, ERR_FILE, "Could not open file : hls_script.tcl");
+    
+    fprintf(tcl_script, "open_project -reset vivado_hls\n");
+    fprintf(tcl_script, "set_top %s\n", hls->fun_name);
+
+    //Files to add----------------------------------------------------------------------------
+    
+
+    char dir_path[MAX_PATH_LENGTH];
+    strncpy(dir_path, hls->source_path, MAX_PATH_LENGTH);
+
+    char* last_slash = strrchr(dir_path, '/');
+    CHECK_COND_DO(last_slash == NULL, ERR_BAD_PARAM, "Wrong path for dir of source C/C++ file !", fclose(tcl_script););
+    *last_slash = '\0';
+
+    regex_t reg;
+    regmatch_t match[1];
+
+    int err = regcomp(&reg, "\\w+.(cpp|h)", REG_EXTENDED);
+    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg compile error !", fclose(tcl_script););
+
+    DIR *d;
+    d = opendir(dir_path);
+    CHECK_COND_DO(d == NULL, ERR_FILE, "Could not open dir !", regfree(&reg););
+    uint8_t count = 0;
+    //char files_to_add[8][MAX_NAME_LENGTH];
+    char** files_to_add = calloc(5, sizeof(char*));
+    CHECK_COND(files_to_add == NULL, ERR_MEM, "Could not allocate space for files to add array !");
+    for(uint8_t i = 0; i < 5; ++i) {
+        files_to_add[i] = calloc(MAX_PATH_LENGTH, sizeof(char));
+        CHECK_COND_DO(files_to_add[i] == NULL, ERR_MEM, "Could not allocate space for files to add array !",
+            free_files_to_add(files_to_add, i););
+    }
+    uint8_t last = 5;
+    if (d != NULL) {
+        struct dirent *dir;
+        while ((dir = readdir(d)) != NULL) {
+            err = regexec(&reg, dir->d_name, 1, (regmatch_t*)match, 0);
+            if(count == last) {
+                CHECK_CALL_DO(allocate_files_to_add(&files_to_add, &last), "allocate_files_to_add failed !", regfree(&reg););
+            }
+            if(err == 0) {
+                strcpy(files_to_add[count++], dir->d_name);
+            }
+        }
+        closedir(d);
+    }
+    regfree(&reg);
+
+    //Files to add----------------------------------------------------------------------------
+
+    for(uint8_t i = 0; i < count; ++i) {
+        fprintf(tcl_script, "add_files %s/%s\n", dir_path, files_to_add[i]);
+    }
+
+    free_files_to_add(files_to_add, last);
+
+    fprintf(tcl_script, "open_solution -reset \"solution1\"\n");
+    fprintf(tcl_script, "set_part {xc7z045ffg900-2}\n");
+    fprintf(tcl_script, "create_clock -period 100MHz\n");
+
+    fprintf(tcl_script, "csynth_design\n");
+
+    fprintf(tcl_script, "export_design -format ip_catalog -rtl vhdl\n");
 
     fclose(tcl_script);
 

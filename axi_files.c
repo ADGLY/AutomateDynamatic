@@ -7,6 +7,10 @@
 #include "hdl.h"
 
 char* read_hdl_file(axi_ip_t* axi_ip, char* set_file_path, const char* file_name) {
+    if(axi_ip == NULL || set_file_path == NULL || file_name == NULL) {
+            return NULL;
+        }
+
     char file_path[MAX_PATH_LENGTH];
     char file_path_suffix[MAX_NAME_LENGTH];
     strcpy(file_path, axi_ip->path);
@@ -31,11 +35,13 @@ char* read_hdl_file(axi_ip_t* axi_ip, char* set_file_path, const char* file_name
 
 error_t read_axi_files(axi_ip_t* axi_ip) {
     CHECK_PARAM(axi_ip);
+    CHECK_PARAM(axi_ip->name);
+    CHECK_PARAM(axi_ip->interface_name);
 
     char top_file_name[MAX_NAME_LENGTH];
     int written = snprintf(top_file_name, MAX_NAME_LENGTH, "%s_v1_0.vhd", axi_ip->name);
     CHECK_LENGTH(written, MAX_NAME_LENGTH);
-    char* top_file = read_hdl_file(axi_ip, axi_ip->axi_files.top_file_path,top_file_name);
+    char* top_file = read_hdl_file(axi_ip, axi_ip->axi_files.top_file_path, top_file_name);
     CHECK_NULL(top_file, ERR_FILE, "Didn't manage to read the top HDL file of the axi IP");
 
     char axi_file_name[MAX_NAME_LENGTH];
@@ -53,6 +59,11 @@ error_t read_axi_files(axi_ip_t* axi_ip) {
 error_t write_array_ports(FILE* file, bram_interface_t* interface) {
     CHECK_PARAM(file);
     CHECK_PARAM(interface);
+    CHECK_PARAM(interface->address);
+    CHECK_PARAM(interface->ce);
+    CHECK_PARAM(interface->we);
+    CHECK_PARAM(interface->dout);
+    CHECK_PARAM(interface->din);
 
     const char* prefix = "dynamatic_";
     
@@ -83,6 +94,11 @@ error_t write_array_ports(FILE* file, bram_interface_t* interface) {
 error_t write_array_ports_wo_prefix(FILE* file, bram_interface_t* interface) {
     CHECK_PARAM(file);
     CHECK_PARAM(interface);
+    CHECK_PARAM(interface->address);
+    CHECK_PARAM(interface->ce);
+    CHECK_PARAM(interface->we);
+    CHECK_PARAM(interface->dout);
+    CHECK_PARAM(interface->din);
 
     fprintf(file, "\t\t%s", interface->address);
     fprintf(file, "%s\n", " : out std_logic_vector (31 downto 0);");
@@ -105,6 +121,11 @@ error_t write_array_ports_wo_prefix(FILE* file, bram_interface_t* interface) {
 error_t write_arrays_port_map(FILE* file, bram_interface_t* interface) {
     CHECK_PARAM(file);
     CHECK_PARAM(interface);
+    CHECK_PARAM(interface->address);
+    CHECK_PARAM(interface->ce);
+    CHECK_PARAM(interface->we);
+    CHECK_PARAM(interface->dout);
+    CHECK_PARAM(interface->din);
 
     const char* prefix = "dynamatic_";
     
@@ -150,6 +171,11 @@ error_t advance_in_file(regex_t* reg, regmatch_t* match, FILE* file, const char*
 
 error_t write_top_file(project_t* project) {
     CHECK_PARAM(project);
+    CHECK_PARAM(project->hdl_source);
+    CHECK_PARAM(project->hdl_source->arrays);
+    CHECK_PARAM(project->hdl_source->params);
+    CHECK_PARAM(project->hdl_source->name);
+    CHECK_PARAM(project->axi_ip.axi_files.top_file)
 
     regex_t reg;
     regmatch_t match[1];
@@ -311,6 +337,8 @@ error_t write_top_file(project_t* project) {
 error_t write_axi_file(project_t* project) {
     CHECK_PARAM(project);
     CHECK_PARAM(project->hdl_source);
+    CHECK_PARAM(project->axi_ip.axi_files.axi_file);
+    CHECK_PARAM(project->hdl_source->params);
 
     regex_t reg;
     regmatch_t match[1];
@@ -379,6 +407,8 @@ error_t write_axi_file(project_t* project) {
 
 error_t update_top_file(project_t* project) {
     CHECK_PARAM(project);
+    CHECK_PARAM(project->axi_ip.axi_files.top_file_path);
+
     CHECK_CALL(write_top_file(project), "write_top_file failed !");
     size_t size;
     char* new_top_file_src = get_source("top_file.tmp", &size);
@@ -398,6 +428,8 @@ error_t update_top_file(project_t* project) {
 
 error_t update_axi_file(project_t* project) {
     CHECK_PARAM(project);
+    CHECK_PARAM(project->axi_ip.axi_files.axi_file_path);
+
     CHECK_CALL(write_axi_file(project), "write_axi_file failed !");
 
     size_t size;

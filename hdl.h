@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <stdbool.h>
 #include "file.h"
 #include "error.h"
 
@@ -22,6 +23,8 @@ typedef struct {
     char name[MAX_NAME_LENGTH];
     bram_interface_t read_ports;
     bram_interface_t write_ports;
+    bool read;
+    bool write;
 } hdl_array_t;
 
 

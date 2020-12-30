@@ -17,6 +17,8 @@ static const char* const read_ports[NB_BRAM_INTERFACE] = {
 
 error_t get_end_of_ports_decl(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);
+    CHECK_PARAM(hdl_source->source);
+
     regex_t reg;
     regmatch_t match[1];
     int err = regcomp(&reg, "end;", REG_EXTENDED);
@@ -30,6 +32,9 @@ error_t get_end_of_ports_decl(hdl_source_t* hdl_source) {
 
 error_t get_entity_name(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);
+    CHECK_PARAM(hdl_source->source);
+    CHECK_PARAM(hdl_source->name);
+
     regex_t reg;
     regmatch_t match[1];
     int err = regcomp(&reg, "entity[ ]\\w+[ ]is", REG_EXTENDED);
@@ -54,6 +59,7 @@ error_t get_entity_name(hdl_source_t* hdl_source) {
 error_t get_arrays(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);
     CHECK_PARAM(hdl_source->source);
+
     regex_t reg;
     regmatch_t match[1];
     const char* source_off = hdl_source->source;
@@ -112,6 +118,7 @@ error_t fill_interfaces(bram_interface_t* read_interface, bram_interface_t* writ
     CHECK_PARAM(read_interface);
     CHECK_PARAM(write_interface);
     CHECK_PARAM(arr_name);
+
     char* pointer_to_read = (char*)read_interface;
     char* pointer_to_write = (char*)write_interface;
 
@@ -139,6 +146,8 @@ error_t fill_interfaces(bram_interface_t* read_interface, bram_interface_t* writ
 error_t fill_arrays_ports(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);
     CHECK_PARAM(hdl_source->arrays);
+    CHECK_PARAM(hdl_source->name);
+
     for(size_t i = 0; i < hdl_source->nb_arrays; ++i) {
         hdl_array_t* array = &(hdl_source->arrays[i]);
         const char* arr_name = array->name;
@@ -150,6 +159,8 @@ error_t fill_arrays_ports(hdl_source_t* hdl_source) {
 error_t get_params(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);
     CHECK_PARAM(hdl_source->source);
+
+
     regex_t reg;
     regmatch_t match[1];
     const char* source_off = hdl_source->source;
@@ -239,6 +250,7 @@ error_t parse_hdl(hdl_source_t* hdl_source) {
 
 error_t hdl_free(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);
+
     free(hdl_source->arrays);
     free(hdl_source->params);
     free(hdl_source->source);

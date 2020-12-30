@@ -32,12 +32,14 @@ error_t get_array_size(project_t* project) {
 
 }
 
-error_t create_project(project_t* project, hdl_source_t* hdl_source) {
+error_t create_project(project_t* project, hdl_source_t* hdl_source, vivado_hls_t* hls) {
     CHECK_PARAM(project);
     CHECK_PARAM(hdl_source);
 
     memset(project, 0, sizeof(project_t));
     project->hdl_source = hdl_source;
+    project->hls = hls;
+
     CHECK_CALL(get_path(project->path, "What is the path of the Vivado project ?"), "get_path failed !");
     CHECK_CALL(get_name(project->name, "What is the name of the Vivado project ?"), "get_name failed !");
 
@@ -57,6 +59,7 @@ error_t create_project(project_t* project, hdl_source_t* hdl_source) {
 
 error_t launch_script(const char* name, const char* exec_path) {
     CHECK_PARAM(name);
+    CHECK_PARAM(exec_path);
 
     char script_path[MAX_PATH_LENGTH];
     strncpy(script_path, exec_path, MAX_PATH_LENGTH);
