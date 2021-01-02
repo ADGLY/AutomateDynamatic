@@ -223,7 +223,7 @@ error_t hdl_create(hdl_source_t* hdl_source) {
     char* result = getcwd(hdl_source->exec_path, MAX_PATH_LENGTH);
     CHECK_COND(result == NULL, ERR_FILE, "getcwd error !");
 
-    CHECK_CALL(get_path(hdl_source->dir, "What is the directory of the Dynamatic output (hdl) ?"), "get_apth failed !");
+    CHECK_CALL(get_path(hdl_source->dir, "What is the directory of the Dynamatic output (hdl) ?"), "get_path failed !");
 
     char top_file_name[MAX_NAME_LENGTH];
     CHECK_CALL(get_name(top_file_name, "What is the name of the top file ?"), "get_name failed !");

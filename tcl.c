@@ -415,7 +415,7 @@ error_t generate_hls_script(vivado_hls_t* hls) {
     regex_t reg;
     regmatch_t match[1];
 
-    int err = regcomp(&reg, "\\w+.(cpp|h)", REG_EXTENDED);
+    int err = regcomp(&reg, "\\w+.(cpp|h|c)", REG_EXTENDED);
     CHECK_COND_DO(err != 0, ERR_REGEX, "Reg compile error !", fclose(tcl_script););
 
     DIR *d;
@@ -431,20 +431,60 @@ error_t generate_hls_script(vivado_hls_t* hls) {
             free_files_to_add(files_to_add, i););
     }
     uint8_t last = 5;
+
+    char main_name[MAX_NAME_LENGTH];
+    last_slash = strrchr(hls->source_path, '/');
+    char* start_cpy;
+    if(last_slash == NULL) {
+        start_cpy = hls->source_path;
+    }
+    else {
+        start_cpy = last_slash + 1;
+    }
+    strncpy(main_name, start_cpy, MAX_NAME_LENGTH);
+    *strrchr(main_name, '.') = '\0';
+    char* name_part = strrchr(main_name, '_');
+    if(name_part != NULL) {
+        *name_part = '\0';
+    }
+
+    char full_cpp_name[MAX_NAME_LENGTH];
+    strncpy(full_cpp_name, start_cpy, MAX_NAME_LENGTH);
+
+    char cpp_name_pattern[MAX_NAME_LENGTH];
+    snprintf(cpp_name_pattern, MAX_NAME_LENGTH, "%s", main_name);
+
+    regex_t reg_cpp_name;
+    err = regcomp(&reg_cpp_name, cpp_name_pattern, REG_EXTENDED);
+    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg compilation failed !", regfree(&reg); free_files_to_add(files_to_add, last););
+
+
+
     if (d != NULL) {
         struct dirent *dir;
         while ((dir = readdir(d)) != NULL) {
             err = regexec(&reg, dir->d_name, 1, (regmatch_t*)match, 0);
             if(count == last) {
-                CHECK_CALL_DO(allocate_files_to_add(&files_to_add, &last), "allocate_files_to_add failed !", regfree(&reg););
+                CHECK_CALL_DO(allocate_files_to_add(&files_to_add, &last), "allocate_files_to_add failed !", regfree(&reg); regfree(&reg_cpp_name););
             }
             if(err == 0) {
-                strcpy(files_to_add[count++], dir->d_name);
+                err = regexec(&reg_cpp_name, dir->d_name, 1, match, 0);
+                if(err != 0) {
+                    if(err == REG_NOMATCH) {
+                        strcpy(files_to_add[count++], dir->d_name);
+                    }
+                }
+                else {
+                    if(strcmp(dir->d_name, full_cpp_name) == 0 || strcmp(".h", strrchr(dir->d_name, '.') == 0)) {
+                        strcpy(files_to_add[count++], dir->d_name);
+                    }
+                }
             }
         }
         closedir(d);
     }
     regfree(&reg);
+    regfree(&reg_cpp_name);
 
     //Files to add----------------------------------------------------------------------------
 

@@ -16,8 +16,32 @@ error_t create_hls(vivado_hls_t* hls, hdl_source_t* hdl_source) {
     char path_temp[MAX_PATH_LENGTH];
     strncpy(path_temp, hdl_source->dir, MAX_PATH_LENGTH);
     uint16_t max = (uint16_t)(MAX_PATH_LENGTH - strlen(path_temp) - 1);
-    //TODO: Maybe the file has a different name than the entity name it is probably related to the fun name
-    int written = snprintf(path_temp + strlen(path_temp), max, "/../src/%s.cpp", hdl_source->name);
+
+    char* temp_hdl_name = strrchr(hdl_source->top_file_path, '/') + 1;
+    char pattern[MAX_NAME_LENGTH];
+
+    regex_t reg;
+    regmatch_t match[2];
+
+    char hdl_name[MAX_NAME_LENGTH];
+    strncpy(hdl_name, temp_hdl_name, MAX_NAME_LENGTH);
+    *strrchr(hdl_name, '.') = '\0';
+    snprintf(pattern, MAX_NAME_LENGTH, "(.*)_optimized");
+
+    int err = regcomp(&reg, pattern, REG_EXTENDED);
+    err = regexec(&reg, hdl_name, 2, match, 0);
+
+    char cpp_name[MAX_NAME_LENGTH];
+
+    if(err == REG_NOMATCH) {
+        strncpy(cpp_name, hdl_name, MAX_NAME_LENGTH);
+    }
+    else {
+        strncpy(cpp_name, hdl_name, (size_t)match[1].rm_eo);
+    }
+    regfree(&reg);
+    
+    int written = snprintf(path_temp + strlen(path_temp), max, "/../src/%s.cpp", cpp_name);
     CHECK_LENGTH(written, max);
 
     char* final_source_path = realpath(path_temp, hls->source_path);
@@ -208,6 +232,8 @@ error_t update_float_op(const char* float_paths, vivado_hls_t* hls) {
     uint8_t count = 0;
     float_op_t* floats = calloc(5, sizeof(float_op_t));
     CHECK_COND(floats == NULL, ERR_MEM, "Could not allocate space for float ops !");
+    
+    
     char hdl_name[MAX_NAME_LENGTH];
     strncpy(hdl_name, hls->fun_name, MAX_NAME_LENGTH);
     uint16_t max = (uint16_t)(MAX_NAME_LENGTH - strlen(hdl_name));

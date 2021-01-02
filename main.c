@@ -32,7 +32,7 @@ int main(void) {
     CHECK_CALL_DO(generate_hls_script(&hls), "generate_hls_script failed !", hdl_free(&hdl_source); hls_free(&hls););
     CHECK_CALL_DO(launch_hls_script(), "launch_hls_script failed !", hdl_free(&hdl_source); hls_free(&hls););
 
-    find_float_op(&hls);
+    CHECK_CALL_DO(find_float_op(&hls), "find_float_op failed !", hdl_free(&hdl_source); hls_free(&hls););
     
     project_t project;
     CHECK_CALL_DO(create_project(&project, &hdl_source, &hls), "create_project failed !", hdl_free(&hdl_source); hls_free(&hls););
