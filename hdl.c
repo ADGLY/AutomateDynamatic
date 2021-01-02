@@ -184,7 +184,7 @@ error_t get_params(hdl_source_t* hdl_source) {
     source_off = (const char*)(source_off + match[0].rm_so + str_match_len);
 
 
-    while((size_t)(source_off - hdl_source->source) <= end_of_port) {
+    while((size_t)(source_off - hdl_source->source) <= end_of_port || err != 0) {
         size_t name_len = str_match_len - 5;
         strncpy(params[param_count].name, str_match, name_len);
         params[param_count].name[name_len + 1] = '\0';
@@ -197,8 +197,11 @@ error_t get_params(hdl_source_t* hdl_source) {
             alloc_size *= 2;
         }
 
+        //TODO: Hacky
         err = regexec(&reg, source_off, 1, (regmatch_t*)match, 0);
-        CHECK_COND_DO(err != 0 && param_count > 1, ERR_REGEX, "Reg exec error !", regfree(&reg); free(params););
+        if(err != 0) {
+            break;
+        }
 
         str_match = source_off + match[0].rm_so;
         str_match_len = (size_t)(match[0].rm_eo - match[0].rm_so);

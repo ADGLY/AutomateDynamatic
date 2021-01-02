@@ -17,6 +17,9 @@
 // /home/antoine/Documents/Dynamatic/BigExamples/examples/matching/src/matching.cpp
 // /home/antoine/Documents/Dynamatic/BigExamples/examples/matching/hdl
 // matching_optimized.vhd
+
+// /home/antoine/Documents/Dynamatic/TestBench/hdl
+// histogram_elaborated_optimized.vhd
 int main(void) {
     
     hdl_source_t hdl_source;
@@ -28,9 +31,9 @@ int main(void) {
     CHECK_CALL_DO(parse_hls(&hls, &hdl_source), "parse_hls failed !", hdl_free(&hdl_source); hls_free(&hls););
     CHECK_CALL_DO(generate_hls_script(&hls), "generate_hls_script failed !", hdl_free(&hdl_source); hls_free(&hls););
     CHECK_CALL_DO(launch_hls_script(), "launch_hls_script failed !", hdl_free(&hdl_source); hls_free(&hls););
+
+    find_float_op(&hls);
     
-
-
     project_t project;
     CHECK_CALL_DO(create_project(&project, &hdl_source, &hls), "create_project failed !", hdl_free(&hdl_source); hls_free(&hls););
     CHECK_CALL_DO(generate_AXI_script(&project), "generate_AXI_script failed !", hdl_free(&hdl_source); hls_free(&hls););
