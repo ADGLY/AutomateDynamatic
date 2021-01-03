@@ -7,8 +7,9 @@
 #include <inttypes.h>
 #include <stdlib.h>
 #include <errno.h>
-#include "vivado_hls.h"
 #include "tcl.h"
+
+#define MAX_DYNAMATIC_FILES 8
 
 auto_error_t generate_MAIN_script(project_t* project) {
     CHECK_PARAM(project);
@@ -38,6 +39,8 @@ auto_error_t generate_MAIN_script(project_t* project) {
 
 auto_error_t generate_AXI_script(project_t* project, axi_ip_t* axi_ip) {
     CHECK_PARAM(project);
+    CHECK_PARAM(axi_ip);
+    CHECK_PARAM(project->hdl_source);
 
     strcpy(axi_ip->name, "axi_ip_dynamatic_test");
     strcpy(axi_ip->interface_name, "CSR");
@@ -71,23 +74,25 @@ auto_error_t generate_AXI_script(project_t* project, axi_ip_t* axi_ip) {
     int err = regcomp(&reg, "\\w+.(vhd|v)", REG_EXTENDED);
     CHECK_COND_DO(err != 0, ERR_REGEX, "Reg compile error !", fclose(tcl_script););
 
-    char files_to_add[8][MAX_NAME_LENGTH];
+    char files_to_add[MAX_DYNAMATIC_FILES][MAX_NAME_LENGTH];
     DIR *d;
     d = opendir(project->hdl_source->dir);
+    CHECK_COND_DO(d == NULL, ERR_FILE, "Could not open dir !", fclose(tcl_script););
+
     int nb_files = 0;
-    if (d != NULL) {
-        struct dirent *dir;
-        while ((dir = readdir(d)) != NULL) {
-            if(nb_files == 8) {
-                fprintf(stderr, "Too many files !\n");
-            }
-            err = regexec(&reg, dir->d_name, 1, (regmatch_t*)match, 0);
-            if(err == 0) {
-                strcpy(files_to_add[nb_files++], dir->d_name);
-            }
+    
+    struct dirent *dir;
+    while ((dir = readdir(d)) != NULL) {
+        if(nb_files == MAX_DYNAMATIC_FILES) {
+            fprintf(stderr, "Too many files !\n");
         }
-        closedir(d);
+        err = regexec(&reg, dir->d_name, 1, (regmatch_t*)match, 0);
+        if(err == 0) {
+            CHECK_LENGTH(strlen(dir->d_name), MAX_NAME_LENGTH);
+            strcpy(files_to_add[nb_files++], dir->d_name);
+        }
     }
+    closedir(d);
     regfree(&reg);
     fprintf(tcl_script, "add_files -norecurse -copy_to %s/%s_1.0/src {", axi_ip->path, axi_ip->name);
 
@@ -252,8 +257,6 @@ auto_error_t generate_final_script(project_t* project, vivado_hls_t* hls, axi_ip
     FILE* tcl_script = fopen("final_script.tcl", "w");
     CHECK_NULL(tcl_script, ERR_FILE, "Could not open file : final_script.tcl");
 
-    //open_project /home/antoine/Documents/ProjetSemestre/Automation/AutomateDynamatic/Vivado_final_test/ip_repo/edit_axi_ip_dynamatic_test_v1_0.xpr
-    //Double the open project ?
     fprintf(tcl_script, "open_project %s/edit_%s_v1_0.xpr\n", axi_ip->path, axi_ip->name);
     fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
 
@@ -277,10 +280,6 @@ auto_error_t generate_final_script(project_t* project, vivado_hls_t* hls, axi_ip
         }
     }
 
-    
-    
-    //ipx::open_ipxact_file /home/antoine/Documents/ProjetSemestre/Automation/AutomateDynamatic/Vivado_final/ip_repo/axi_ip_dynamatic_test_1.0/component.xml
-
     fprintf(tcl_script, "ipx::open_ipxact_file %s/%s_1.0/component.xml\n", axi_ip->path, axi_ip->name);
     fprintf(tcl_script, "ipx::merge_project_changes hdl_parameters [ipx::current_core]\n");
     axi_ip->revision = axi_ip->revision + 1;
@@ -289,11 +288,8 @@ auto_error_t generate_final_script(project_t* project, vivado_hls_t* hls, axi_ip
     fprintf(tcl_script, "ipx::update_checksums [ipx::current_core]\n");
     fprintf(tcl_script, "ipx::save_core [ipx::current_core]\n");
 
-    //update_ip_catalog -rebuild -repo_path /home/antoine/Documents/ProjetSemestre/Automation/AutomateDynamatic/Vivado_final/ip_repo/axi_ip_dynamatic_test_1.0
     fprintf(tcl_script, "update_ip_catalog -rebuild -repo_path %s/%s_1.0\n", axi_ip->path, axi_ip->name);
     fprintf(tcl_script, "close_project\n");
-
-    //open_project /home/antoine/Documents/ProjetSemestre/Automation/AutomateDynamatic/Vivado_final/FinalProject/FinalProject.xpr
 
     fprintf(tcl_script, "open_project %s/%s/%s.xpr\n", project->path, project->name, project->name);
     fprintf(tcl_script, "update_ip_catalog -rebuild\n");
@@ -335,7 +331,7 @@ auto_error_t generate_final_script(project_t* project, vivado_hls_t* hls, axi_ip
     }
 
 
-    //Specific to Zynq
+    //Specific to Zynq, allows bd_automation
     fprintf(tcl_script, "startgroup\n");
     fprintf(tcl_script, "set latest_ver [get_ipdefs -filter {NAME == processing_system7}]\n");
     fprintf(tcl_script, "create_bd_cell -type ip -vlnv $latest_ver processing_system7_0\n");
@@ -385,34 +381,6 @@ auto_error_t generate_final_script(project_t* project, vivado_hls_t* hls, axi_ip
     return ERR_NONE;
 }
 
-void free_files_to_add(char** files_to_add, uint8_t last) {
-    if(files_to_add == NULL) {
-        return;
-    }
-    for(uint8_t i = 0; i < last; ++i) {
-        if(files_to_add[i] != NULL) {
-            free(files_to_add[i]);
-        }
-    }
-    free(files_to_add);
-}
-
-auto_error_t allocate_files_to_add(char*** files_to_add, uint8_t* last) {
-    CHECK_PARAM(files_to_add);
-    CHECK_PARAM(*files_to_add);
-    CHECK_PARAM(last);
-
-    char** new_files_to_add = realloc(*files_to_add, *last * 2);
-    CHECK_COND_DO(new_files_to_add == NULL, ERR_MEM, "Could not realloc for files_to_add !", free_files_to_add(*files_to_add, *last););
-    *files_to_add = new_files_to_add;
-
-    for(uint8_t i = *last; i < *last * 2; ++i) {
-        files_to_add[i] = calloc(MAX_PATH_LENGTH, sizeof(char));
-        CHECK_COND_DO(files_to_add[i], ERR_MEM, "Could not realloc for files_to_add !", free_files_to_add(*files_to_add, i););
-    }
-    *last = *last * 2;
-    return ERR_NONE;
-}
 
 auto_error_t generate_hls_script(vivado_hls_t* hls) {
     CHECK_PARAM(hls);
@@ -423,9 +391,6 @@ auto_error_t generate_hls_script(vivado_hls_t* hls) {
     fprintf(tcl_script, "open_project -reset vivado_hls\n");
     fprintf(tcl_script, "set_top %s\n", hls->fun_name);
 
-    //Files to add----------------------------------------------------------------------------
-    
-
     char dir_path[MAX_PATH_LENGTH];
     strncpy(dir_path, hls->source_path, MAX_PATH_LENGTH);
 
@@ -433,28 +398,6 @@ auto_error_t generate_hls_script(vivado_hls_t* hls) {
     CHECK_COND_DO(last_slash == NULL, ERR_BAD_PARAM, "Wrong path for dir of source C/C++ file !", fclose(tcl_script););
     *last_slash = '\0';
 
-    regex_t reg;
-    regmatch_t match[1];
-
-    int err = regcomp(&reg, "\\w+.(cpp|h|c)", REG_EXTENDED);
-    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg compile error !", fclose(tcl_script););
-
-    DIR *d;
-    d = opendir(dir_path);
-    CHECK_COND_DO(d == NULL, ERR_FILE, "Could not open dir !", regfree(&reg););
-    uint8_t count = 0;
-    //char files_to_add[8][MAX_NAME_LENGTH];
-    char** files_to_add = calloc(5, sizeof(char*));
-    CHECK_COND(files_to_add == NULL, ERR_MEM, "Could not allocate space for files to add array !");
-    for(uint8_t i = 0; i < 5; ++i) {
-        files_to_add[i] = calloc(MAX_PATH_LENGTH, sizeof(char));
-        CHECK_COND_DO(files_to_add[i] == NULL, ERR_MEM, "Could not allocate space for files to add array !",
-            free_files_to_add(files_to_add, i););
-    }
-    uint8_t last = 5;
-
-
-    //Could use hdl_soource->top_file_name
     char main_name[MAX_NAME_LENGTH];
     last_slash = strrchr(hls->source_path, '/');
     char* start_cpy;
@@ -478,34 +421,49 @@ auto_error_t generate_hls_script(vivado_hls_t* hls) {
     snprintf(cpp_name_pattern, MAX_NAME_LENGTH, "%s", main_name);
 
     regex_t reg_cpp_name;
-    err = regcomp(&reg_cpp_name, cpp_name_pattern, REG_EXTENDED);
-    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg compilation failed !", regfree(&reg); free_files_to_add(files_to_add, last););
+    int err = regcomp(&reg_cpp_name, cpp_name_pattern, REG_EXTENDED);
+    CHECK_COND(err != 0, ERR_REGEX, "Reg compilation failed !");
 
 
+    regex_t reg;
+    regmatch_t match[1];
 
-    if (d != NULL) {
-        struct dirent *dir;
-        while ((dir = readdir(d)) != NULL) {
-            err = regexec(&reg, dir->d_name, 1, (regmatch_t*)match, 0);
-            if(count == last) {
-                CHECK_CALL_DO(allocate_files_to_add(&files_to_add, &last), "allocate_files_to_add failed !", regfree(&reg); regfree(&reg_cpp_name););
-            }
-            if(err == 0) {
-                err = regexec(&reg_cpp_name, dir->d_name, 1, match, 0);
-                if(err != 0) {
-                    if(err == REG_NOMATCH) {
-                        strcpy(files_to_add[count++], dir->d_name);
-                    }
+    err = regcomp(&reg, "\\w+.(cpp|h|c)", REG_EXTENDED);
+    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg compile error !", fclose(tcl_script); regfree(&reg_cpp_name););
+
+    DIR *d;
+    d = opendir(dir_path);
+    CHECK_COND_DO(d == NULL, ERR_FILE, "Could not open dir !", regfree(&reg); fclose(tcl_script); regfree(&reg_cpp_name););
+
+    char** files_to_add;
+    uint8_t count = 0;
+    uint8_t last = 0;
+    CHECK_CALL_DO(allocate_str_arr(&files_to_add, &last), "allocate_str_arr failed !", fclose(tcl_script); regfree(&reg_cpp_name); closedir(d); regfree(&reg););
+
+    struct dirent *dir;
+    while ((dir = readdir(d)) != NULL) {
+        err = regexec(&reg, dir->d_name, 1, (regmatch_t*)match, 0);
+        if(count == last) {
+            CHECK_CALL_DO(allocate_str_arr(&files_to_add, &last), "allocate_str_arr failed !", fclose(tcl_script); 
+                regfree(&reg_cpp_name); regfree(&reg); closedir(d); free_str_arr(files_to_add, last););
+        }
+        if(err == 0) {
+            err = regexec(&reg_cpp_name, dir->d_name, 1, match, 0);
+            if(err != 0) {
+                if(err == REG_NOMATCH) {
+                    CHECK_LENGTH(strlen(dir->d_name), MAX_NAME_LENGTH);
+                    strcpy(files_to_add[count++], dir->d_name);
                 }
-                else {
-                    if(strcmp(dir->d_name, full_cpp_name) == 0 || strcmp(".h", strrchr(dir->d_name, '.')) == 0) {
-                        strcpy(files_to_add[count++], dir->d_name);
-                    }
+            }
+            else {
+                if(strcmp(dir->d_name, full_cpp_name) == 0 || strcmp(".h", strrchr(dir->d_name, '.')) == 0) {
+                    strcpy(files_to_add[count++], dir->d_name);
                 }
             }
         }
-        closedir(d);
     }
+    closedir(d);
+
     regfree(&reg);
     regfree(&reg_cpp_name);
 
@@ -515,7 +473,7 @@ auto_error_t generate_hls_script(vivado_hls_t* hls) {
         fprintf(tcl_script, "add_files %s/%s\n", dir_path, files_to_add[i]);
     }
 
-    free_files_to_add(files_to_add, last);
+    free_str_arr(files_to_add, last);
 
     fprintf(tcl_script, "open_solution -reset \"solution1\"\n");
     fprintf(tcl_script, "set_part {xc7z045ffg900-2}\n");

@@ -16,5 +16,8 @@ all: $(APP)
 
 %.o: %.c $(HEADERS)
 
+main:
+	clang -ggdb3 *.cc -o main
+
 clean:
 	@rm -f $(APP) *.o

@@ -316,42 +316,6 @@ auto_error_t find_float_op(vivado_hls_t* hls) {
     return ERR_NONE;
 }
 
-void free_str(char** files_to_add, uint8_t last) {
-    if(files_to_add == NULL) {
-        return;
-    }
-    for(uint8_t i = 0; i < last; ++i) {
-        if(files_to_add[i] != NULL) {
-            free(files_to_add[i]);
-        }
-    }
-    free(files_to_add);
-}
-
-auto_error_t allocate_str(char*** files_to_add, uint8_t* last) {
-    CHECK_PARAM(files_to_add);
-    //CHECK_PARAM(*files_to_add);
-    CHECK_PARAM(last);
-    char** new_files_to_add;
-    uint8_t prev_last = *last;
-    if(*last == 0) {
-        new_files_to_add = calloc(5, sizeof(char*));
-        *last = 5;
-    }
-    else {
-        new_files_to_add = realloc(*files_to_add, *last * 2 * sizeof(char*));
-        *last = *last * 2;
-    }
-    CHECK_COND_DO(new_files_to_add == NULL, ERR_MEM, "Could not realloc for files_to_add !", free_str(*files_to_add, prev_last););
-    *files_to_add = new_files_to_add;
-
-    for(uint8_t i = prev_last; i < *last; ++i) {
-        (*files_to_add)[i] = calloc(MAX_PATH_LENGTH, sizeof(char));
-        CHECK_COND_DO((*files_to_add)[i] == NULL, ERR_MEM, "Could not realloc for files_to_add !", free_str(*files_to_add, i););
-    }
-    return ERR_NONE;
-}
-
 auto_error_t open_dot_file(vivado_hls_t* hls, hdl_source_t* hdl) {
     CHECK_PARAM(hls);
     CHECK_PARAM(hdl);
@@ -400,7 +364,7 @@ auto_error_t open_dot_file(vivado_hls_t* hls, hdl_source_t* hdl) {
         }
         char** name_list = NULL;
         uint8_t last = 0;
-        allocate_str(&name_list, &last);
+        allocate_str_arr(&name_list, &last);
         uint8_t nb_names = 0;
         snprintf(pattern, MAX_NAME_LENGTH, "%s([^(\\v)])*op = \"(\\w+)\"", float_op->name);
         err = regcomp(&reg, pattern, REG_EXTENDED);

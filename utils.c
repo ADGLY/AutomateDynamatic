@@ -58,3 +58,38 @@ auto_error_t get_path(char* path, const char* msg) {
     CHECK_COND(final_path == NULL && errno != ENOENT, ERR_PATH, "Could not resolve absolute path !");
     return ERR_NONE;
 }
+
+void free_str_arr(char** str_arr, uint8_t last) {
+    if(str_arr == NULL) {
+        return;
+    }
+    for(uint8_t i = 0; i < last; ++i) {
+        if(str_arr[i] != NULL) {
+            free(str_arr[i]);
+        }
+    }
+    free(str_arr);
+}
+
+auto_error_t allocate_str_arr(char*** str_arr, uint8_t* last) {
+    CHECK_PARAM(str_arr);
+    CHECK_PARAM(last);
+    char** new_str_arr;
+    uint8_t prev_last = *last;
+    if(*last == 0) {
+        new_str_arr = calloc(5, sizeof(char*));
+        *last = 5;
+    }
+    else {
+        new_str_arr = realloc(*str_arr, *last * 2 * sizeof(char*));
+        *last = *last * 2;
+    }
+    CHECK_COND_DO(new_str_arr == NULL, ERR_MEM, "Could not realloc for str_arr !", free_str_arr(*str_arr, prev_last););
+    *str_arr = new_str_arr;
+
+    for(uint8_t i = prev_last; i < *last; ++i) {
+        (*str_arr)[i] = calloc(MAX_PATH_LENGTH, sizeof(char));
+        CHECK_COND_DO((*str_arr)[i] == NULL, ERR_MEM, "Could not realloc for str_arr !", free_str_arr(*str_arr, i););
+    }
+    return ERR_NONE;
+}
