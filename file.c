@@ -21,7 +21,7 @@ char* get_source(const char* path, size_t* file_size) {
     rewind(file);
     
     
-    char* source = malloc(size + 1);
+    char* source = (char*)malloc(size + 1);
     if(source == NULL) {
         fprintf(stderr, "Memory allocation for the file data buffer has failed !\n");
         fclose(file);
@@ -36,7 +36,7 @@ char* get_source(const char* path, size_t* file_size) {
     return source;
 }
 
-error_t get_name(char* name, const char* msg) {
+auto_error_t get_name(char* name, const char* msg) {
     CHECK_PARAM(name);
     CHECK_PARAM(msg);
 
@@ -47,7 +47,7 @@ error_t get_name(char* name, const char* msg) {
     return ERR_NONE;
 }
 
-error_t get_path(char* path, const char* msg) {
+auto_error_t get_path(char* path, const char* msg) {
     CHECK_PARAM(path);
     CHECK_PARAM(msg);
 

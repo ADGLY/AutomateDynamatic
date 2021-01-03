@@ -6,6 +6,15 @@
 #include "file.h"
 #include "hdl.h"
 
+
+auto_error_t create_axi(axi_ip_t* axi_ip, project_t* project) {
+    strcpy(axi_ip->path, project->path);
+    CHECK_LENGTH(strlen(axi_ip->path) + strlen("/ip_repo") + 1, MAX_PATH_LENGTH);
+    strcpy(axi_ip->path + strlen(axi_ip->path), "/ip_repo");
+    axi_ip->revision = 1;
+    return ERR_NONE;
+}
+
 char* read_hdl_file(axi_ip_t* axi_ip, char* set_file_path, const char* file_name) {
     if(axi_ip == NULL || set_file_path == NULL || file_name == NULL) {
             return NULL;
@@ -33,7 +42,7 @@ char* read_hdl_file(axi_ip_t* axi_ip, char* set_file_path, const char* file_name
     return top_file;
 }
 
-error_t read_axi_files(axi_ip_t* axi_ip) {
+auto_error_t read_axi_files(axi_ip_t* axi_ip) {
     CHECK_PARAM(axi_ip);
     CHECK_PARAM(axi_ip->name);
     CHECK_PARAM(axi_ip->interface_name);
@@ -56,7 +65,7 @@ error_t read_axi_files(axi_ip_t* axi_ip) {
     return ERR_NONE;
 }
 
-error_t write_array_ports(FILE* file, bram_interface_t* interface) {
+auto_error_t write_array_ports(FILE* file, bram_interface_t* interface) {
     CHECK_PARAM(file);
     CHECK_PARAM(interface);
     CHECK_PARAM(interface->address);
@@ -91,7 +100,7 @@ error_t write_array_ports(FILE* file, bram_interface_t* interface) {
     return ERR_NONE;
 }
 
-error_t write_array_ports_wo_prefix(FILE* file, bram_interface_t* interface) {
+auto_error_t write_array_ports_wo_prefix(FILE* file, bram_interface_t* interface) {
     CHECK_PARAM(file);
     CHECK_PARAM(interface);
     CHECK_PARAM(interface->address);
@@ -118,7 +127,7 @@ error_t write_array_ports_wo_prefix(FILE* file, bram_interface_t* interface) {
     return ERR_NONE;
 }
 
-error_t write_arrays_port_map(FILE* file, bram_interface_t* interface) {
+auto_error_t write_arrays_port_map(FILE* file, bram_interface_t* interface) {
     CHECK_PARAM(file);
     CHECK_PARAM(interface);
     CHECK_PARAM(interface->address);
@@ -147,7 +156,7 @@ error_t write_arrays_port_map(FILE* file, bram_interface_t* interface) {
     return ERR_NONE;
 }
 
-error_t advance_in_file(regex_t* reg, regmatch_t* match, FILE* file, const char** offset, const char* pattern) {
+auto_error_t advance_in_file(regex_t* reg, regmatch_t* match, FILE* file, const char** offset, const char* pattern) {
     CHECK_PARAM(reg);
     CHECK_PARAM(match);
     CHECK_PARAM(file);
@@ -169,13 +178,13 @@ error_t advance_in_file(regex_t* reg, regmatch_t* match, FILE* file, const char*
     return ERR_NONE;
 }
 
-error_t write_top_file(project_t* project) {
+auto_error_t write_top_file(project_t* project, axi_ip_t* axi_ip) {
     CHECK_PARAM(project);
     CHECK_PARAM(project->hdl_source);
     CHECK_PARAM(project->hdl_source->arrays);
     CHECK_PARAM(project->hdl_source->params);
     CHECK_PARAM(project->hdl_source->name);
-    CHECK_PARAM(project->axi_ip.axi_files.top_file)
+    CHECK_PARAM(axi_ip->axi_files.top_file)
 
     regex_t reg;
     regmatch_t match[1];
@@ -183,7 +192,7 @@ error_t write_top_file(project_t* project) {
     FILE* new_top_file = fopen("top_file.tmp", "w");
     CHECK_NULL(new_top_file, ERR_FILE, "Could not open file : top_file.tmp");
 
-    const char* top_file_off = project->axi_ip.axi_files.top_file;
+    const char* top_file_off = axi_ip->axi_files.top_file;
 
     CHECK_CALL_DO(advance_in_file(&reg, match, new_top_file, &top_file_off, "-- Users to add ports here"), "advance in file failed !",
         fclose(new_top_file););
@@ -322,7 +331,7 @@ error_t write_top_file(project_t* project) {
     fprintf(new_top_file, "\t);\n");
 
     const char* cur = top_file_off;
-    const char* top_file = project->axi_ip.axi_files.top_file;
+    const char* top_file = axi_ip->axi_files.top_file;
     const char* end = top_file + strlen(top_file);
     size_t remaining = (size_t)(end - cur);
     fwrite(top_file_off, sizeof(char), remaining, new_top_file);
@@ -334,10 +343,10 @@ error_t write_top_file(project_t* project) {
     return ERR_NONE;
 }
 
-error_t write_axi_file(project_t* project) {
+auto_error_t write_axi_file(project_t* project, axi_ip_t* axi_ip) {
     CHECK_PARAM(project);
     CHECK_PARAM(project->hdl_source);
-    CHECK_PARAM(project->axi_ip.axi_files.axi_file);
+    CHECK_PARAM(axi_ip->axi_files.axi_file);
     CHECK_PARAM(project->hdl_source->params);
 
     regex_t reg;
@@ -346,7 +355,7 @@ error_t write_axi_file(project_t* project) {
     FILE* new_axi_file = fopen("axi_file.tmp", "w");
     CHECK_NULL(new_axi_file, ERR_FILE, "Could not open file : axi_file.tmp");
 
-    const char* axi_file_off = project->axi_ip.axi_files.axi_file;
+    const char* axi_file_off = axi_ip->axi_files.axi_file;
 
     hdl_source_t* hdl_source = project->hdl_source;
 
@@ -395,7 +404,7 @@ error_t write_axi_file(project_t* project) {
     }
 
     const char* cur = axi_file_off;
-    const char* axi_file = project->axi_ip.axi_files.axi_file;
+    const char* axi_file = axi_ip->axi_files.axi_file;
     const char* end = axi_file + strlen(axi_file);
     size_t remaining = (size_t)(end - cur);
     fwrite(axi_file_off, sizeof(char), remaining, new_axi_file);
@@ -405,18 +414,18 @@ error_t write_axi_file(project_t* project) {
     return ERR_NONE;
 }
 
-error_t update_top_file(project_t* project) {
+auto_error_t update_top_file(project_t* project, axi_ip_t* axi_ip) {
     CHECK_PARAM(project);
-    CHECK_PARAM(project->axi_ip.axi_files.top_file_path);
+    CHECK_PARAM(axi_ip->axi_files.top_file_path);
 
-    CHECK_CALL(write_top_file(project), "write_top_file failed !");
+    CHECK_CALL(write_top_file(project, axi_ip), "write_top_file failed !");
     size_t size;
     char* new_top_file_src = get_source("top_file.tmp", &size);
     CHECK_COND(new_top_file_src == NULL, ERR_FILE, "get_source failed !");
     remove("top_file.tmp");
 
     //Open real file and replace its content
-    FILE* top_file = fopen(project->axi_ip.axi_files.top_file_path, "w");
+    FILE* top_file = fopen(axi_ip->axi_files.top_file_path, "w");
     CHECK_COND_DO(top_file == NULL, ERR_FILE, "Could not open file : top hdl file", free((void*)new_top_file_src); fclose(top_file););
 
     fwrite(new_top_file_src, sizeof(char), size, top_file);
@@ -426,11 +435,11 @@ error_t update_top_file(project_t* project) {
     return ERR_NONE;
 }
 
-error_t update_axi_file(project_t* project) {
+auto_error_t update_axi_file(project_t* project, axi_ip_t* axi_ip) {
     CHECK_PARAM(project);
-    CHECK_PARAM(project->axi_ip.axi_files.axi_file_path);
+    CHECK_PARAM(axi_ip->axi_files.axi_file_path);
 
-    CHECK_CALL(write_axi_file(project), "write_axi_file failed !");
+    CHECK_CALL(write_axi_file(project, axi_ip), "write_axi_file failed !");
 
     size_t size;
     char* new_axi_file_src = get_source("axi_file.tmp", &size);
@@ -438,7 +447,7 @@ error_t update_axi_file(project_t* project) {
     remove("axi_file.tmp");
 
     //Open real file and replace its content
-    FILE* axi_file = fopen(project->axi_ip.axi_files.axi_file_path, "w");
+    FILE* axi_file = fopen(axi_ip->axi_files.axi_file_path, "w");
     CHECK_COND_DO(axi_file == NULL, ERR_FILE, "Could not open file : axi hdl file", free((void*)new_axi_file_src); fclose(axi_file););
     fwrite(new_axi_file_src, sizeof(char), size, axi_file);
     fclose(axi_file);
@@ -447,8 +456,14 @@ error_t update_axi_file(project_t* project) {
     return ERR_NONE;
 }
 
-error_t update_files(project_t* project) {
-    CHECK_CALL(update_top_file(project), "update_top_file failed !");
-    CHECK_CALL(update_axi_file(project), "update_axi_file failed !");
+auto_error_t update_files(project_t* project, axi_ip_t* axi_ip) {
+    CHECK_CALL(update_top_file(project, axi_ip), "update_top_file failed !");
+    CHECK_CALL(update_axi_file(project, axi_ip), "update_axi_file failed !");
+    return ERR_NONE;
+}
+
+auto_error_t free_axi(axi_ip_t* axi_ip) {
+    free((void*)(axi_ip->axi_files.top_file));
+    free((void*)(axi_ip->axi_files.axi_file));
     return ERR_NONE;
 }

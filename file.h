@@ -8,5 +8,5 @@
 #define MAX_PATH_LENGTH PATH_MAX
 
 char* get_source(const char* path, size_t* file_size);
-error_t get_name(char* name, const char* msg);
-error_t get_path(char* path, const char* msg);
+auto_error_t get_name(char* name, const char* msg);
+auto_error_t get_path(char* path, const char* msg);

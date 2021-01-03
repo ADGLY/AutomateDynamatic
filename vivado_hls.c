@@ -11,7 +11,7 @@
 #include <dirent.h>
 #include "vivado_hls.h"
 
-error_t create_hls(vivado_hls_t* hls, hdl_source_t* hdl_source) {
+auto_error_t create_hls(vivado_hls_t* hls, hdl_source_t* hdl_source) {
     CHECK_PARAM(hls);
     CHECK_PARAM(hdl_source);
 
@@ -61,7 +61,7 @@ error_t create_hls(vivado_hls_t* hls, hdl_source_t* hdl_source) {
     return ERR_NONE;
 }
 
-error_t advance_in_file_hls(regex_t* reg, regmatch_t* match, const char** source_off, const char* pattern, const char** str_match,
+auto_error_t advance_in_file_hls(regex_t* reg, regmatch_t* match, const char** source_off, const char* pattern, const char** str_match,
     size_t* match_len) {
     int err = regcomp(reg, pattern, REG_EXTENDED);
     CHECK_COND(err != 0, ERR_REGEX, "Reg compile error !");
@@ -78,7 +78,7 @@ error_t advance_in_file_hls(regex_t* reg, regmatch_t* match, const char** source
     return ERR_NONE;
 }
 
-error_t parse_hls(vivado_hls_t* hls, hdl_source_t* hdl_source) {
+auto_error_t parse_hls(vivado_hls_t* hls, hdl_source_t* hdl_source) {
     CHECK_PARAM(hls);
     CHECK_PARAM(hls->hls_source);
     CHECK_PARAM(hdl_source);
@@ -170,7 +170,7 @@ error_t parse_hls(vivado_hls_t* hls, hdl_source_t* hdl_source) {
     return ERR_NONE;
 }
 
-error_t launch_hls_script() {
+auto_error_t launch_hls_script() {
 
     FILE* vivado_hls_input;
     vivado_hls_input = popen("vivado_hls -f hls_script.tcl", "w");
@@ -194,7 +194,7 @@ float_op_t* check_op_already_exists(uint8_t count, const char* op_name, float_op
     return NULL;
 }
 
-error_t check_file(uint8_t* count, regex_t* reg, regmatch_t* match, float_op_t* floats, const char* float_paths, mode_t mode, uint8_t match_idx, 
+auto_error_t check_file(uint8_t* count, regex_t* reg, regmatch_t* match, float_op_t* floats, const char* float_paths, mode_t mode, uint8_t match_idx, 
     struct dirent* dir) {
     
     CHECK_PARAM(count);
@@ -233,7 +233,7 @@ error_t check_file(uint8_t* count, regex_t* reg, regmatch_t* match, float_op_t* 
     return ERR_NONE;
 }
 
-error_t update_float_op(const char* float_paths, vivado_hls_t* hls) {
+auto_error_t update_float_op(const char* float_paths, vivado_hls_t* hls) {
 
     CHECK_PARAM(float_paths);
     CHECK_PARAM(hls);
@@ -301,7 +301,7 @@ error_t update_float_op(const char* float_paths, vivado_hls_t* hls) {
     
 }
 
-error_t find_float_op(vivado_hls_t* hls) {
+auto_error_t find_float_op(vivado_hls_t* hls) {
     CHECK_PARAM(hls);
 
     char float_paths[MAX_PATH_LENGTH];
@@ -328,7 +328,7 @@ void free_str(char** files_to_add, uint8_t last) {
     free(files_to_add);
 }
 
-error_t allocate_str(char*** files_to_add, uint8_t* last) {
+auto_error_t allocate_str(char*** files_to_add, uint8_t* last) {
     CHECK_PARAM(files_to_add);
     //CHECK_PARAM(*files_to_add);
     CHECK_PARAM(last);
@@ -352,7 +352,7 @@ error_t allocate_str(char*** files_to_add, uint8_t* last) {
     return ERR_NONE;
 }
 
-error_t open_dot_file(vivado_hls_t* hls, hdl_source_t* hdl) {
+auto_error_t open_dot_file(vivado_hls_t* hls, hdl_source_t* hdl) {
     CHECK_PARAM(hls);
     CHECK_PARAM(hdl);
 
@@ -424,8 +424,135 @@ error_t open_dot_file(vivado_hls_t* hls, hdl_source_t* hdl) {
     return ERR_NONE;
 }
 
+int compare(const void* elem1 , const void* elem2) {
+    const float_op_t* op1 = *((const float_op_t**)elem1);
+    const float_op_t* op2 = *((const float_op_t**)elem2);
+    if(op1->appearance_offset > op2->appearance_offset) {
+        return 1;
+    }
+    if(op1->appearance_offset < op2->appearance_offset) {
+        return -1;
+    }
+    return 0;
+}
 
-error_t update_latency(float_op_t* op) {
+auto_error_t update_arithmetic_units(project_t* project, vivado_hls_t* hls, axi_ip_t* axi_ip) {
+    CHECK_PARAM(project);
+    CHECK_PARAM(hls);
+
+    char arithmetic_path[MAX_PATH_LENGTH];
+    strcpy(arithmetic_path, axi_ip->path);
+    snprintf(arithmetic_path + strlen(arithmetic_path), MAX_NAME_LENGTH, "/%s_1.0/src/arithmetic_units.vhd", axi_ip->name);
+    char* arithmetic_source = get_source(arithmetic_path, NULL);
+    CHECK_NULL(arithmetic_source, ERR_FILE, "Could not read arithmetic source !");
+    char* source_off = arithmetic_source;
+
+    float_op_t** sorted_by_appearance = calloc(hls->nb_float_op, sizeof(float_op_t*));
+    uint8_t count = 0;
+    char pattern[MAX_NAME_LENGTH];
+    regex_t reg;
+    regmatch_t match[2];
+
+    //WARNING: The order should be valid because arith names are put in order in the list
+    //TODO: Make it more reliable
+    for(uint8_t i = 0; i < hls->nb_float_op; ++i) {
+        float_op_t* op = &(hls->float_ops[i]);
+        snprintf(pattern, MAX_NAME_LENGTH, "%s", op->name);
+
+        int err = regcomp(&reg, pattern, REG_EXTENDED);
+        CHECK_COND(err != 0, ERR_REGEX, "Regex compilation failed !");
+
+        err = regexec(&reg, source_off, 1, match, 0);
+        CHECK_COND_DO(err != 0, ERR_REGEX, "Regex exec failed !", regfree(&reg););
+
+        op->appearance_offset = (size_t)match[0].rm_so;
+        sorted_by_appearance[count++] = op;
+        qsort(sorted_by_appearance, count, sizeof(float_op_t*), compare);
+
+        regfree(&reg);
+    }
+
+    FILE* arithmetic_file = fopen(arithmetic_path, "w");
+    CHECK_COND_DO(arithmetic_path == NULL, ERR_FILE, "Could not open file arithmetic_units.vhd !", free(source_off););
+
+    for(uint8_t i = 0; i < hls->nb_float_op; ++i) {
+        float_op_t* op = sorted_by_appearance[i];
+        for(uint8_t j = 0; j < op->nb_arith_names; ++j) {
+            char* name = op->arith_unit_name_list[j];
+            snprintf(pattern, MAX_NAME_LENGTH, "entity %s", name);
+
+            int err = regcomp(&reg, pattern, REG_EXTENDED);
+            CHECK_COND(err != 0, ERR_REGEX, "Regex compilation failed !");
+
+            err = regexec(&reg, source_off, 1, match, 0);
+            CHECK_COND_DO(err != 0, ERR_REGEX, "Regex exec failed !", regfree(&reg););
+
+            regfree(&reg);
+
+            fwrite(source_off, sizeof(char), (size_t)match[0].rm_eo, arithmetic_file);
+            source_off += match[0].rm_eo;
+
+            snprintf(pattern, MAX_NAME_LENGTH, "component (\\w+) is");
+            err = regcomp(&reg, pattern, REG_EXTENDED);
+            CHECK_COND(err != 0, ERR_REGEX, "Regex compilation failed !");
+
+            err = regexec(&reg, source_off, 2, match, 0);
+            CHECK_COND_DO(err != 0, ERR_REGEX, "Regex exec failed !", regfree(&reg););
+
+            char component_name[MAX_NAME_LENGTH];
+            size_t name_len = (size_t)(match[1].rm_eo - match[1].rm_so);
+            strncpy(component_name, source_off + match[1].rm_so, name_len);
+            component_name[name_len] = '\0';
+
+            regfree(&reg);
+
+            fwrite(source_off, sizeof(char), (size_t)match[1].rm_so, arithmetic_file);
+            source_off += match[1].rm_so;
+
+            char hdl_file_name[MAX_NAME_LENGTH];
+            char* last_slash = strrchr(op->hdl_path, '/');
+            if(last_slash == NULL) {
+                strcpy(hdl_file_name, op->hdl_path);
+            }
+            else {
+                strcpy(hdl_file_name, last_slash + 1);
+            }
+
+            *strrchr(hdl_file_name, '.') = '\0';
+
+            fwrite(hdl_file_name, sizeof(char), strlen(hdl_file_name), arithmetic_file);
+            source_off += (match[1].rm_eo - match[1].rm_so);
+            fwrite(source_off, sizeof(char), (size_t)(match[0].rm_eo - match[1].rm_eo), arithmetic_file);
+            source_off = source_off + (size_t)(match[0].rm_eo - match[1].rm_eo);
+
+
+            snprintf(pattern, MAX_NAME_LENGTH, "\\w+[[:space:]]*\\:[[:space:]]*component[[:space:]]*(%s)", component_name);
+            err = regcomp(&reg, pattern, REG_EXTENDED);
+            CHECK_COND(err != 0, ERR_REGEX, "Regex compilation failed !");
+
+            err = regexec(&reg, source_off, 2, match, 0);
+            CHECK_COND_DO(err != 0, ERR_REGEX, "Regex exec failed !", regfree(&reg););
+
+            regfree(&reg);
+            
+            fwrite(source_off, sizeof(char), (size_t)match[1].rm_so, arithmetic_file);
+            source_off += match[0].rm_eo;
+
+            fwrite(hdl_file_name, sizeof(char), strlen(hdl_file_name), arithmetic_file);
+        }
+    }
+
+    fwrite(source_off, sizeof(char), strlen(source_off), arithmetic_file);
+    fclose(arithmetic_file);
+    free(arithmetic_source);
+
+
+    return ERR_NONE;
+
+
+}
+
+auto_error_t update_latency(float_op_t* op) {
     CHECK_PARAM(op);
     char* tcl_script = get_source(op->script_path, NULL);
     FILE* script_file = fopen(op->script_path, "w");
@@ -458,7 +585,7 @@ error_t update_latency(float_op_t* op) {
     return ERR_NONE;
 }
 
-error_t update_fop_tcl(vivado_hls_t* hls) {
+auto_error_t update_fop_tcl(vivado_hls_t* hls) {
     CHECK_PARAM(hls);
 
     for(uint8_t i = 0; i < hls->nb_float_op; ++i) {
@@ -469,6 +596,8 @@ error_t update_fop_tcl(vivado_hls_t* hls) {
     return ERR_NONE;
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
 int unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
 {
     int rv = remove(fpath);
@@ -478,8 +607,9 @@ int unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW
 
     return rv;
 }
+#pragma clang diagnostic pop
 
-error_t hls_free(vivado_hls_t* hls) {
+auto_error_t hls_free(vivado_hls_t* hls) {
     CHECK_PARAM(hls);
     CHECK_PARAM(hls->hls_source);
 

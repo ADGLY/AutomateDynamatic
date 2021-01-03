@@ -3,7 +3,7 @@
 
 typedef enum {
     ERR_NONE, ERR_MEM, ERR_FILE, ERR_REGEX, ERR_NAME_TOO_LONG, ERR_BAD_PARAM, ERR_PATH
-} error_t;
+} auto_error_t;
 
 #define CHECK_PARAM(param)                                          \
 do {                                                                \
@@ -24,7 +24,7 @@ do {                                                                            
 
 #define CHECK_CALL(err, msg)                                                \
 do {                                                                        \
-    error_t temp = (err);                                                   \
+    auto_error_t temp = (err);                                                   \
     if((temp) != ERR_NONE) {                                                \
         fprintf(stderr, "%s:%d | %s\n", __FILE__, __LINE__, msg);           \
         return temp;                                                        \
@@ -33,7 +33,7 @@ do {                                                                        \
 
 #define CHECK_CALL_DO(err, msg, what_to_do)                                 \
 do {                                                                        \
-    error_t temp = (err);                                                   \
+    auto_error_t temp = (err);                                                   \
     if((temp) != ERR_NONE) {                                                \
         fprintf(stderr, "%s:%d | %s\n", __FILE__, __LINE__, msg);           \
         what_to_do;                                                         \

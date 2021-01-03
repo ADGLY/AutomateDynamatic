@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include "hdl.h"
 #include "vivado.h"
+#include "vivado_hls.h"
 
 static const char* const write_ports[NB_BRAM_INTERFACE] = {
     "_address0", "_ce0", "_we0", "_dout0", "_din0"
@@ -16,7 +17,7 @@ static const char* const read_ports[NB_BRAM_INTERFACE] = {
     "_address1", "_ce1", "_we1", "_dout1", "_din1"
 };
 
-error_t get_end_of_ports_decl(hdl_source_t* hdl_source) {
+auto_error_t get_end_of_ports_decl(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);
     CHECK_PARAM(hdl_source->source);
 
@@ -31,7 +32,7 @@ error_t get_end_of_ports_decl(hdl_source_t* hdl_source) {
     return ERR_NONE;
 }
 
-error_t get_entity_name(hdl_source_t* hdl_source) {
+auto_error_t get_entity_name(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);
     CHECK_PARAM(hdl_source->source);
     CHECK_PARAM(hdl_source->name);
@@ -49,7 +50,7 @@ error_t get_entity_name(hdl_source_t* hdl_source) {
     return ERR_NONE;
 }
 
-error_t get_arrays(hdl_source_t* hdl_source) {
+auto_error_t get_arrays(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);
     CHECK_PARAM(hdl_source->source);
 
@@ -103,7 +104,7 @@ error_t get_arrays(hdl_source_t* hdl_source) {
     return ERR_NONE;
 }
 
-error_t fill_interfaces(bram_interface_t* read_interface, bram_interface_t* write_interface, const char* arr_name) {
+auto_error_t fill_interfaces(bram_interface_t* read_interface, bram_interface_t* write_interface, const char* arr_name) {
     CHECK_PARAM(read_interface);
     CHECK_PARAM(write_interface);
     CHECK_PARAM(arr_name);
@@ -132,7 +133,7 @@ error_t fill_interfaces(bram_interface_t* read_interface, bram_interface_t* writ
     return ERR_NONE;
 }
 
-error_t fill_arrays_ports(hdl_source_t* hdl_source) {
+auto_error_t fill_arrays_ports(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);
     CHECK_PARAM(hdl_source->arrays);
     CHECK_PARAM(hdl_source->name);
@@ -145,7 +146,7 @@ error_t fill_arrays_ports(hdl_source_t* hdl_source) {
     return ERR_NONE;
 }
 
-error_t get_params(hdl_source_t* hdl_source) {
+auto_error_t get_params(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);
     CHECK_PARAM(hdl_source->source);
 
@@ -204,7 +205,7 @@ error_t get_params(hdl_source_t* hdl_source) {
     return ERR_NONE;
 }
 
-error_t hdl_create(hdl_source_t* hdl_source) {
+auto_error_t hdl_create(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);
 
     memset(hdl_source, 0, sizeof(hdl_source_t));
@@ -225,7 +226,7 @@ error_t hdl_create(hdl_source_t* hdl_source) {
     return ERR_NONE;
 }
 
-error_t parse_hdl(hdl_source_t* hdl_source) {
+auto_error_t parse_hdl(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);
     char* source = get_source(hdl_source->top_file_path, NULL);
     CHECK_NULL(source, ERR_FILE, "Did not manage to read source file !");
@@ -239,135 +240,10 @@ error_t parse_hdl(hdl_source_t* hdl_source) {
     return ERR_NONE;
 }
 
-int compare(const void* elem1 , const void* elem2) {
-    const float_op_t* op1 = *((const float_op_t**)elem1);
-    const float_op_t* op2 = *((const float_op_t**)elem2);
-    if(op1->appearance_offset > op2->appearance_offset) {
-        return 1;
-    }
-    if(op1->appearance_offset < op2->appearance_offset) {
-        return -1;
-    }
-    return 0;
-}
-
-error_t update_arithmetic_units(project_t* project, vivado_hls_t* hls) {
-    CHECK_PARAM(project);
-    CHECK_PARAM(hls);
-
-    char arithmetic_path[MAX_PATH_LENGTH];
-    strcpy(arithmetic_path, project->axi_ip.path);
-    snprintf(arithmetic_path + strlen(arithmetic_path), MAX_NAME_LENGTH, "/%s_1.0/src/arithmetic_units.vhd", project->axi_ip.name);
-    char* arithmetic_source = get_source(arithmetic_path, NULL);
-    CHECK_NULL(arithmetic_source, ERR_FILE, "Could not read arithmetic source !");
-    char* source_off = arithmetic_source;
-
-    float_op_t** sorted_by_appearance = calloc(hls->nb_float_op, sizeof(float_op_t*));
-    uint8_t count = 0;
-    char pattern[MAX_NAME_LENGTH];
-    regex_t reg;
-    regmatch_t match[2];
-
-    //WARNING: The order should be valid because arith names are put in order in the list
-    //TODO: Make it more reliable
-    for(uint8_t i = 0; i < hls->nb_float_op; ++i) {
-        float_op_t* op = &(hls->float_ops[i]);
-        snprintf(pattern, MAX_NAME_LENGTH, "%s", op->name);
-
-        int err = regcomp(&reg, pattern, REG_EXTENDED);
-        CHECK_COND(err != 0, ERR_REGEX, "Regex compilation failed !");
-
-        err = regexec(&reg, source_off, 1, match, 0);
-        CHECK_COND_DO(err != 0, ERR_REGEX, "Regex exec failed !", regfree(&reg););
-
-        op->appearance_offset = (size_t)match[0].rm_so;
-        sorted_by_appearance[count++] = op;
-        qsort(sorted_by_appearance, count, sizeof(float_op_t*), compare);
-
-        regfree(&reg);
-    }
-
-    FILE* arithmetic_file = fopen(arithmetic_path, "w");
-    CHECK_COND_DO(arithmetic_path == NULL, ERR_FILE, "Could not open file arithmetic_units.vhd !", free(source_off););
-
-    for(uint8_t i = 0; i < hls->nb_float_op; ++i) {
-        float_op_t* op = sorted_by_appearance[i];
-        for(uint8_t j = 0; j < op->nb_arith_names; ++j) {
-            char* name = op->arith_unit_name_list[j];
-            snprintf(pattern, MAX_NAME_LENGTH, "entity %s", name);
-
-            int err = regcomp(&reg, pattern, REG_EXTENDED);
-            CHECK_COND(err != 0, ERR_REGEX, "Regex compilation failed !");
-
-            err = regexec(&reg, source_off, 1, match, 0);
-            CHECK_COND_DO(err != 0, ERR_REGEX, "Regex exec failed !", regfree(&reg););
-
-            regfree(&reg);
-
-            fwrite(source_off, sizeof(char), (size_t)match[0].rm_eo, arithmetic_file);
-            source_off += match[0].rm_eo;
-
-            snprintf(pattern, MAX_NAME_LENGTH, "component (\\w+) is");
-            err = regcomp(&reg, pattern, REG_EXTENDED);
-            CHECK_COND(err != 0, ERR_REGEX, "Regex compilation failed !");
-
-            err = regexec(&reg, source_off, 2, match, 0);
-            CHECK_COND_DO(err != 0, ERR_REGEX, "Regex exec failed !", regfree(&reg););
-
-            char component_name[MAX_NAME_LENGTH];
-            size_t name_len = (size_t)(match[1].rm_eo - match[1].rm_so);
-            strncpy(component_name, source_off + match[1].rm_so, name_len);
-            component_name[name_len] = '\0';
-
-            regfree(&reg);
-
-            fwrite(source_off, sizeof(char), (size_t)match[1].rm_so, arithmetic_file);
-            source_off += match[1].rm_so;
-
-            char hdl_file_name[MAX_NAME_LENGTH];
-            char* last_slash = strrchr(op->hdl_path, '/');
-            if(last_slash == NULL) {
-                strcpy(hdl_file_name, op->hdl_path);
-            }
-            else {
-                strcpy(hdl_file_name, last_slash + 1);
-            }
-
-            *strrchr(hdl_file_name, '.') = '\0';
-
-            fwrite(hdl_file_name, sizeof(char), strlen(hdl_file_name), arithmetic_file);
-            source_off += (match[1].rm_eo - match[1].rm_so);
-            fwrite(source_off, sizeof(char), (size_t)(match[0].rm_eo - match[1].rm_eo), arithmetic_file);
-            source_off = source_off + (size_t)(match[0].rm_eo - match[1].rm_eo);
 
 
-            snprintf(pattern, MAX_NAME_LENGTH, "\\w+[[:space:]]*\\:[[:space:]]*component[[:space:]]*(%s)", component_name);
-            err = regcomp(&reg, pattern, REG_EXTENDED);
-            CHECK_COND(err != 0, ERR_REGEX, "Regex compilation failed !");
 
-            err = regexec(&reg, source_off, 2, match, 0);
-            CHECK_COND_DO(err != 0, ERR_REGEX, "Regex exec failed !", regfree(&reg););
-
-            regfree(&reg);
-            
-            fwrite(source_off, sizeof(char), (size_t)match[1].rm_so, arithmetic_file);
-            source_off += match[0].rm_eo;
-
-            fwrite(hdl_file_name, sizeof(char), strlen(hdl_file_name), arithmetic_file);
-        }
-    }
-
-    fwrite(source_off, sizeof(char), strlen(source_off), arithmetic_file);
-    fclose(arithmetic_file);
-    free(arithmetic_source);
-
-
-    return ERR_NONE;
-
-
-}
-
-error_t hdl_free(hdl_source_t* hdl_source) {
+auto_error_t hdl_free(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);
 
     free(hdl_source->arrays);

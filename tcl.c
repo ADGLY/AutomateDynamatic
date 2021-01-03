@@ -10,7 +10,7 @@
 #include "vivado_hls.h"
 #include "tcl.h"
 
-error_t generate_MAIN_script(project_t* project) {
+auto_error_t generate_MAIN_script(project_t* project) {
     CHECK_PARAM(project);
 
     FILE* tcl_script = fopen("generate_project.tcl", "w");
@@ -36,10 +36,9 @@ error_t generate_MAIN_script(project_t* project) {
 
 }
 
-error_t generate_AXI_script(project_t* project) {
+auto_error_t generate_AXI_script(project_t* project, axi_ip_t* axi_ip) {
     CHECK_PARAM(project);
 
-    axi_ip_t* axi_ip = &(project->axi_ip);
     strcpy(axi_ip->name, "axi_ip_dynamatic_test");
     strcpy(axi_ip->interface_name, "CSR");
     axi_ip->nb_slave_registers = project->hdl_source->nb_params + 2;
@@ -114,7 +113,7 @@ error_t generate_AXI_script(project_t* project) {
     return ERR_NONE;
 }
 
-error_t generate_adapters(size_t array_size) {
+auto_error_t generate_adapters(size_t array_size) {
     FILE* write_enb_adapter = fopen("write_enb_adapter.vhd", "w");
     CHECK_NULL(write_enb_adapter, ERR_FILE, "Could not open file : write_enb_adapter.vhd");
 
@@ -155,7 +154,7 @@ error_t generate_adapters(size_t array_size) {
 }
 
 
-error_t generate_memory_interface(FILE* tcl_script, axi_ip_t* axi_ip, const char* name, const char* suffix, bram_interface_t* interface, size_t array_size) {
+auto_error_t generate_memory_interface(FILE* tcl_script, axi_ip_t* axi_ip, const char* name, const char* suffix, bram_interface_t* interface, size_t array_size) {
     CHECK_PARAM(tcl_script);
     CHECK_PARAM(axi_ip);
     CHECK_PARAM(name);
@@ -202,7 +201,7 @@ error_t generate_memory_interface(FILE* tcl_script, axi_ip_t* axi_ip, const char
     return ERR_NONE;
 }
 
-error_t generate_memory(FILE* tcl_script, hdl_array_t* arr, axi_ip_t* axi_ip, size_t array_size) {
+auto_error_t generate_memory(FILE* tcl_script, hdl_array_t* arr, axi_ip_t* axi_ip, size_t array_size) {
     CHECK_PARAM(tcl_script);
     CHECK_PARAM(arr);
     CHECK_PARAM(axi_ip);
@@ -215,7 +214,7 @@ error_t generate_memory(FILE* tcl_script, hdl_array_t* arr, axi_ip_t* axi_ip, si
     return ERR_NONE;
 }
 
-error_t memory_connection_automation(FILE* tcl_script, hdl_source_t* hdl_source) {
+auto_error_t memory_connection_automation(FILE* tcl_script, hdl_source_t* hdl_source) {
     CHECK_PARAM(tcl_script);
     CHECK_PARAM(hdl_source);
     CHECK_PARAM(hdl_source->arrays);
@@ -243,14 +242,13 @@ error_t memory_connection_automation(FILE* tcl_script, hdl_source_t* hdl_source)
     return ERR_NONE;
 }
 
-error_t generate_final_script(project_t* project, vivado_hls_t* hls) {
+auto_error_t generate_final_script(project_t* project, vivado_hls_t* hls, axi_ip_t* axi_ip) {
     CHECK_PARAM(project);
     CHECK_PARAM(project->hdl_source);
     CHECK_PARAM(project->hdl_source->arrays);
     CHECK_PARAM(project->hdl_source->params);
     CHECK_PARAM(hls);
 
-    axi_ip_t* axi_ip = &(project->axi_ip);
     FILE* tcl_script = fopen("final_script.tcl", "w");
     CHECK_NULL(tcl_script, ERR_FILE, "Could not open file : final_script.tcl");
 
@@ -399,7 +397,7 @@ void free_files_to_add(char** files_to_add, uint8_t last) {
     free(files_to_add);
 }
 
-error_t allocate_files_to_add(char*** files_to_add, uint8_t* last) {
+auto_error_t allocate_files_to_add(char*** files_to_add, uint8_t* last) {
     CHECK_PARAM(files_to_add);
     CHECK_PARAM(*files_to_add);
     CHECK_PARAM(last);
@@ -416,7 +414,7 @@ error_t allocate_files_to_add(char*** files_to_add, uint8_t* last) {
     return ERR_NONE;
 }
 
-error_t generate_hls_script(vivado_hls_t* hls) {
+auto_error_t generate_hls_script(vivado_hls_t* hls) {
     CHECK_PARAM(hls);
 
     FILE* tcl_script = fopen("hls_script.tcl", "w");

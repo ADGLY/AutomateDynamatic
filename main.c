@@ -35,17 +35,21 @@ int main(void) {
     CHECK_CALL_DO(find_float_op(&hls), "find_float_op failed !", hdl_free(&hdl_source); hls_free(&hls););
     CHECK_CALL_DO(open_dot_file(&hls, &hdl_source), "open_dot_file failed !", hdl_free(&hdl_source); hls_free(&hls););
     CHECK_CALL_DO(update_fop_tcl(&hls), "update_fop_tcl failed !", hdl_free(&hdl_source); hls_free(&hls););
-    
+
     project_t project;
-    CHECK_CALL_DO(create_project(&project, &hdl_source, &hls), "create_project failed !", hdl_free(&hdl_source); hls_free(&hls););
-    CHECK_CALL_DO(generate_AXI_script(&project), "generate_AXI_script failed !", hdl_free(&hdl_source); hls_free(&hls););
+    CHECK_CALL_DO(create_project(&project, &hdl_source), "create_project failed !", hdl_free(&hdl_source); hls_free(&hls););
+
+    axi_ip_t axi_ip;
+    create_axi(&axi_ip, &project);
+
+    CHECK_CALL_DO(generate_AXI_script(&project, &axi_ip), "generate_AXI_script failed !", hdl_free(&hdl_source); hls_free(&hls););
     CHECK_CALL_DO(generate_MAIN_script(&project), "generate_MAIN_script failed !", hdl_free(&hdl_source); hls_free(&hls););
     CHECK_CALL_DO(launch_script("generate_project.tcl", hdl_source.exec_path), "launch_script failed !", hdl_free(&hdl_source); hls_free(&hls););
     
-    CHECK_CALL_DO(update_arithmetic_units(&project, &hls), "update_arithmetic_units failed !", hdl_free(&hdl_source); hls_free(&hls););
-    CHECK_CALL_DO(read_axi_files(&(project.axi_ip)), "read_axi_files failed !", hdl_free(&hdl_source); hls_free(&hls););
-    CHECK_CALL_DO(update_files(&project), "update_files failed !", project_free(&project););
-    CHECK_CALL_DO(generate_final_script(&project, &hls), "generate_final_script failed !", project_free(&project); hls_free(&hls););
+    CHECK_CALL_DO(update_arithmetic_units(&project, &hls, &axi_ip), "update_arithmetic_units failed !", hdl_free(&hdl_source); hls_free(&hls););
+    CHECK_CALL_DO(read_axi_files(&axi_ip), "read_axi_files failed !", hdl_free(&hdl_source); hls_free(&hls););
+    CHECK_CALL_DO(update_files(&project, &axi_ip), "update_files failed !", project_free(&project););
+    CHECK_CALL_DO(generate_final_script(&project, &hls, &axi_ip), "generate_final_script failed !", project_free(&project); hls_free(&hls););
 
     CHECK_CALL_DO(launch_script("final_script.tcl", hdl_source.exec_path), "launch_script failed !", project_free(&project); hls_free(&hls););
 
