@@ -2,7 +2,7 @@
 
 #include <stddef.h>
 #include <stdbool.h>
-#include "file.h"
+#include "utils.h"
 #include "error.h"
 
 #define NB_BRAM_INTERFACE 5
@@ -39,6 +39,7 @@ typedef struct {
     size_t nb_params;
     char* source;
     size_t end_of_ports_decl;
+    size_t end_arrays;
     char exec_path[MAX_PATH_LENGTH];
 } hdl_source_t;
 

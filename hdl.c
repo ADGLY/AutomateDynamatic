@@ -6,8 +6,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "hdl.h"
-#include "vivado.h"
-#include "vivado_hls.h"
 
 static const char* const write_ports[NB_BRAM_INTERFACE] = {
     "_address0", "_ce0", "_we0", "_dout0", "_din0"
@@ -17,35 +15,50 @@ static const char* const read_ports[NB_BRAM_INTERFACE] = {
     "_address1", "_ce1", "_we1", "_dout1", "_din1"
 };
 
-auto_error_t get_end_of_ports_decl(hdl_source_t* hdl_source) {
+
+auto_error_t get_simple_info(hdl_source_t* hdl_source, const char* pattern, regmatch_t* match, size_t nmatch) {
     CHECK_PARAM(hdl_source);
     CHECK_PARAM(hdl_source->source);
 
     regex_t reg;
-    regmatch_t match[1];
-    int err = regcomp(&reg, "end;", REG_EXTENDED);
+    int err = regcomp(&reg, pattern, REG_EXTENDED);
     CHECK_COND(err != 0, ERR_REGEX, "Reg compile error !");
-    err = regexec(&reg, hdl_source->source, 1, (regmatch_t*)match, 0);
+    err = regexec(&reg, hdl_source->source, nmatch, (regmatch_t*)match, 0);
     CHECK_COND_DO(err != 0, ERR_REGEX, "Reg exec error !", regfree(&reg););
-    hdl_source->end_of_ports_decl = (size_t)match[0].rm_eo;
     regfree(&reg);
+
+    return ERR_NONE;
+}
+
+auto_error_t get_end_of_ports_decl(hdl_source_t* hdl_source) {
+    regmatch_t match[1];
+    CHECK_CALL(get_simple_info(hdl_source, "end;", match, 1), "get_simple_info failed !");
+    hdl_source->end_of_ports_decl = (size_t)match[0].rm_eo;
+
     return ERR_NONE;
 }
 
 auto_error_t get_entity_name(hdl_source_t* hdl_source) {
-    CHECK_PARAM(hdl_source);
-    CHECK_PARAM(hdl_source->source);
-    CHECK_PARAM(hdl_source->name);
-
-    regex_t reg;
     regmatch_t match[2];
-    int err = regcomp(&reg, "entity[ ](\\w+)[ ]is", REG_EXTENDED);
-    CHECK_COND(err != 0, ERR_REGEX, "Reg compile error !");
-    err = regexec(&reg, hdl_source->source, 2, (regmatch_t*)match, 0);
-    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg exec error !", regfree(&reg));
-    regfree(&reg);
+    CHECK_CALL(get_simple_info(hdl_source, "entity[[:space:]]*(\\w+)[[:space:]]*is", match, 2), "get_simple_info failed !");
     CHECK_LENGTH((size_t)(match[1].rm_eo - match[1].rm_so), MAX_NAME_LENGTH);
     strncpy(hdl_source->name, hdl_source->source +match[1].rm_so, (size_t)(match[1].rm_eo - match[1].rm_so));
+
+    return ERR_NONE;
+}
+
+auto_error_t iterate_hdl(regex_t* reg, const char** source_off, regmatch_t* match, const char** str_match, size_t* str_match_len, int* err, size_t* array_count) {
+    *err = regexec(reg, *source_off, 2, (regmatch_t*)match, 0);
+    if(array_count == NULL) {
+        CHECK_COND_DO(*err != 0, ERR_REGEX, "Reg exec error !", regfree(reg););
+    }
+    else {
+        CHECK_COND_DO(*err != 0 && *array_count > 1, ERR_REGEX, "Reg exec error !", regfree(reg););
+    }
+    
+    *str_match = *source_off + match[0].rm_so;
+    *str_match_len = (size_t)(match[0].rm_eo - match[0].rm_so);
+    *source_off = (const char*)(*source_off + match[0].rm_so + *str_match_len);
 
     return ERR_NONE;
 }
@@ -65,16 +78,14 @@ auto_error_t get_arrays(hdl_source_t* hdl_source) {
 
     size_t end_of_port = hdl_source->end_of_ports_decl;
 
-    int err = regcomp(&reg, "(\\w+)_address0", REG_EXTENDED);
+    int err = regcomp(&reg, "(\\w+)_din1", REG_EXTENDED);
     CHECK_COND_DO(err != 0, ERR_REGEX, "Reg compile error !", free((void*)arrays););
 
-    //First part of the while loop
-    err = regexec(&reg, source_off, 2, (regmatch_t*)match, 0);
-    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg exec error !", regfree(&reg); free((void*)arrays););
-    
-    const char* str_match = source_off + match[0].rm_so;
-    size_t str_match_len = (size_t)(match[0].rm_eo - match[0].rm_so);
-    source_off = (const char*)(source_off + match[0].rm_so + str_match_len);
+    const char* str_match;
+    size_t str_match_len;
+    CHECK_CALL_DO(iterate_hdl(&reg, &source_off, match, &str_match, &str_match_len, &err, NULL), "iterate_hdl_failed !", free((void*)arrays););
+
+    size_t end_arrays = 0;
 
     while((size_t)(source_off - hdl_source->source) <= end_of_port || err != 0) {
 
@@ -88,18 +99,16 @@ auto_error_t get_arrays(hdl_source_t* hdl_source) {
             CHECK_COND_DO(new_arrays == NULL, ERR_MEM, "Failed to realloc !", regfree(&reg); free(arrays););
             arrays = new_arrays;
         }
+        
+        end_arrays = (size_t)(source_off - hdl_source->source);
 
-        err = regexec(&reg, source_off, 2, (regmatch_t*)match, 0);
-        CHECK_COND(err != 0 && array_count > 1, ERR_REGEX, "Reg exec error !");
-
-        str_match = source_off + match[0].rm_so;
-        str_match_len = (size_t)(match[0].rm_eo - match[0].rm_so);
-        source_off = (const char*)(source_off + match[0].rm_so + str_match_len);
+        CHECK_CALL_DO(iterate_hdl(&reg, &source_off, match, &str_match, &str_match_len, &err, &array_count), "iterate_hdl_failed !", free((void*)arrays););
     }
     hdl_array_t* new_arrays = realloc(arrays, array_count * sizeof(hdl_array_t));
     CHECK_COND_DO(new_arrays == NULL, ERR_MEM, "Failed to realloc !", regfree(&reg); free(arrays));
     hdl_source->arrays = new_arrays;
     hdl_source->nb_arrays = array_count;
+    hdl_source->end_arrays = end_arrays;
     regfree(&reg);
     return ERR_NONE;
 }
@@ -136,7 +145,6 @@ auto_error_t fill_interfaces(bram_interface_t* read_interface, bram_interface_t*
 auto_error_t fill_arrays_ports(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);
     CHECK_PARAM(hdl_source->arrays);
-    CHECK_PARAM(hdl_source->name);
 
     for(size_t i = 0; i < hdl_source->nb_arrays; ++i) {
         hdl_array_t* array = &(hdl_source->arrays[i]);
@@ -153,7 +161,7 @@ auto_error_t get_params(hdl_source_t* hdl_source) {
 
     regex_t reg;
     regmatch_t match[2];
-    const char* source_off = hdl_source->source;
+    const char* source_off = hdl_source->source + hdl_source->end_arrays;
     size_t alloc_size = 10;
     hdl_in_param_t* params = calloc(alloc_size, sizeof(hdl_in_param_t));
     CHECK_NULL(params, ERR_MEM, "Failed to alloc for params !");
@@ -161,17 +169,12 @@ auto_error_t get_params(hdl_source_t* hdl_source) {
     size_t end_of_port = hdl_source->end_of_ports_decl;
 
 
-    int err = regcomp(&reg, "(\\w+)_din[[:space:]]", REG_EXTENDED);
+    int err = regcomp(&reg, "(\\w+)_din", REG_EXTENDED);
     CHECK_COND_DO(err != 0, ERR_REGEX, "Reg compile error !", free(params););
 
-
-    //first iter
-    err = regexec(&reg, source_off, 2, (regmatch_t*)match, 0);
-    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg exec error !", regfree(&reg); free(params););
-
-    const char* str_match = source_off + match[0].rm_so;
-    size_t str_match_len = (size_t)(match[0].rm_eo - match[0].rm_so);
-    source_off = (const char*)(source_off + match[0].rm_so + str_match_len);
+    const char* str_match;
+    size_t str_match_len;
+    CHECK_CALL_DO(iterate_hdl(&reg, &source_off, match, &str_match, &str_match_len, &err, NULL), "iterate_hdl_failed !", free((void*)params););
 
 
     while((size_t)(source_off - hdl_source->source) <= end_of_port || err != 0) {
@@ -187,15 +190,7 @@ auto_error_t get_params(hdl_source_t* hdl_source) {
             alloc_size *= 2;
         }
 
-        //TODO: Hacky
-        err = regexec(&reg, source_off, 2, (regmatch_t*)match, 0);
-        if(err != 0) {
-            break;
-        }
-
-        str_match = source_off + match[0].rm_so;
-        str_match_len = (size_t)(match[0].rm_eo - match[0].rm_so);
-        source_off = (const char*)(source_off + match[0].rm_so + str_match_len);
+        CHECK_CALL_DO(iterate_hdl(&reg, &source_off, match, &str_match, &str_match_len, &err, NULL), "iterate_hdl_failed !", free((void*)params););
     }
     hdl_in_param_t* new_params = realloc(params, sizeof(hdl_in_param_t) * param_count);
     CHECK_COND_DO(new_params == NULL, ERR_MEM, "Realloc failed for params !", regfree(&reg); free(params));
@@ -239,9 +234,6 @@ auto_error_t parse_hdl(hdl_source_t* hdl_source) {
     CHECK_CALL(get_params(hdl_source), "get_params failed !");
     return ERR_NONE;
 }
-
-
-
 
 auto_error_t hdl_free(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);

@@ -24,20 +24,20 @@ do {                                                                            
 
 #define CHECK_CALL(err, msg)                                                \
 do {                                                                        \
-    auto_error_t temp = (err);                                                   \
-    if((temp) != ERR_NONE) {                                                \
+    auto_error_t temp_err = (err);                                                   \
+    if((temp_err) != ERR_NONE) {                                                \
         fprintf(stderr, "%s:%d | %s\n", __FILE__, __LINE__, msg);           \
-        return temp;                                                        \
+        return temp_err;                                                        \
     }                                                                       \
 } while(0);
 
 #define CHECK_CALL_DO(err, msg, what_to_do)                                 \
 do {                                                                        \
-    auto_error_t temp = (err);                                                   \
-    if((temp) != ERR_NONE) {                                                \
+    auto_error_t temp_err = (err);                                                   \
+    if((temp_err) != ERR_NONE) {                                                \
         fprintf(stderr, "%s:%d | %s\n", __FILE__, __LINE__, msg);           \
         what_to_do;                                                         \
-        return temp;                                                        \
+        return temp_err;                                                        \
     }                                                                       \
 } while(0);
 

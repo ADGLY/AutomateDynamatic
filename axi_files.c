@@ -3,11 +3,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include "axi_files.h"
-#include "file.h"
-#include "hdl.h"
 
 
 auto_error_t create_axi(axi_ip_t* axi_ip, project_t* project) {
+    CHECK_PARAM(axi_ip);
+    CHECK_PARAM(project);
+
     strcpy(axi_ip->path, project->path);
     CHECK_LENGTH(strlen(axi_ip->path) + strlen("/ip_repo") + 1, MAX_PATH_LENGTH);
     strcpy(axi_ip->path + strlen(axi_ip->path), "/ip_repo");
@@ -44,8 +45,6 @@ char* read_hdl_file(axi_ip_t* axi_ip, char* set_file_path, const char* file_name
 
 auto_error_t read_axi_files(axi_ip_t* axi_ip) {
     CHECK_PARAM(axi_ip);
-    CHECK_PARAM(axi_ip->name);
-    CHECK_PARAM(axi_ip->interface_name);
 
     char top_file_name[MAX_NAME_LENGTH];
     int written = snprintf(top_file_name, MAX_NAME_LENGTH, "%s_v1_0.vhd", axi_ip->name);
@@ -68,11 +67,6 @@ auto_error_t read_axi_files(axi_ip_t* axi_ip) {
 auto_error_t write_array_ports(FILE* file, bram_interface_t* interface) {
     CHECK_PARAM(file);
     CHECK_PARAM(interface);
-    CHECK_PARAM(interface->address);
-    CHECK_PARAM(interface->ce);
-    CHECK_PARAM(interface->we);
-    CHECK_PARAM(interface->dout);
-    CHECK_PARAM(interface->din);
 
     const char* prefix = "dynamatic_";
     
@@ -103,11 +97,6 @@ auto_error_t write_array_ports(FILE* file, bram_interface_t* interface) {
 auto_error_t write_array_ports_wo_prefix(FILE* file, bram_interface_t* interface) {
     CHECK_PARAM(file);
     CHECK_PARAM(interface);
-    CHECK_PARAM(interface->address);
-    CHECK_PARAM(interface->ce);
-    CHECK_PARAM(interface->we);
-    CHECK_PARAM(interface->dout);
-    CHECK_PARAM(interface->din);
 
     fprintf(file, "\t\t%s", interface->address);
     fprintf(file, "%s\n", " : out std_logic_vector (31 downto 0);");
@@ -130,11 +119,6 @@ auto_error_t write_array_ports_wo_prefix(FILE* file, bram_interface_t* interface
 auto_error_t write_arrays_port_map(FILE* file, bram_interface_t* interface) {
     CHECK_PARAM(file);
     CHECK_PARAM(interface);
-    CHECK_PARAM(interface->address);
-    CHECK_PARAM(interface->ce);
-    CHECK_PARAM(interface->we);
-    CHECK_PARAM(interface->dout);
-    CHECK_PARAM(interface->din);
 
     const char* prefix = "dynamatic_";
     
@@ -183,7 +167,6 @@ auto_error_t write_top_file(project_t* project, axi_ip_t* axi_ip) {
     CHECK_PARAM(project->hdl_source);
     CHECK_PARAM(project->hdl_source->arrays);
     CHECK_PARAM(project->hdl_source->params);
-    CHECK_PARAM(project->hdl_source->name);
     CHECK_PARAM(axi_ip->axi_files.top_file)
 
     regex_t reg;
