@@ -13,3 +13,4 @@ auto_error_t get_name(char* name, const char* msg);
 auto_error_t get_path(char* path, const char* msg);
 void free_str_arr(char** str_arr, uint8_t last);
 auto_error_t allocate_str_arr(char*** str_arr, uint8_t* last);
+void clean_folder();

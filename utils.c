@@ -1,8 +1,14 @@
+#define _XOPEN_SOURCE 500
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <dirent.h>
+#include <regex.h>
+#include <ftw.h>
 #include "utils.h"
 
 char* get_source(const char* path, size_t* file_size) {
@@ -92,4 +98,55 @@ auto_error_t allocate_str_arr(char*** str_arr, uint8_t* last) {
         CHECK_COND_DO((*str_arr)[i] == NULL, ERR_MEM, "Could not realloc for str_arr !", free_str_arr(*str_arr, i););
     }
     return ERR_NONE;
+}
+
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+int unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
+{
+    int rv = remove(fpath);
+
+    if (rv)
+        perror(fpath);
+
+    return rv;
+}
+#pragma clang diagnostic pop
+
+void clean_folder() {
+    nftw("vivado_hls", unlink_cb, 64, FTW_DEPTH | FTW_PHYS);
+    nftw(".Xil", unlink_cb, 64, FTW_DEPTH | FTW_PHYS);
+    remove("final_script.tcl");
+    remove("generate_axi_ip.tcl");
+    remove("generate_project.tcl");
+    remove("hls_script.tcl");
+    remove("vivado.jou");
+    remove("vivado.log");
+    remove("vivado_hls.log");
+
+    DIR *d;
+    d = opendir("./");
+    if(d == NULL) {
+        return;
+    }
+
+    regex_t reg;
+    regmatch_t match[1];
+
+    int err = regcomp(&reg, "vivado_[[:digit:]]*\\.backup", REG_EXTENDED);
+    if(err != 0) {
+        closedir(d);
+        return;
+    }
+
+    struct dirent *dir;
+    while ((dir = readdir(d)) != NULL) {
+        err = regexec(&reg, dir->d_name, 1, match, 0);
+        if(err == 0) {
+            remove(dir->d_name);
+        }
+    }
+
+    closedir(d);
 }

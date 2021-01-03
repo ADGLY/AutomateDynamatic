@@ -31,5 +31,4 @@ auto_error_t find_float_op(vivado_hls_t* hls);
 auto_error_t update_arithmetic_units(project_t* project, vivado_hls_t* hls, axi_ip_t* axi_ip);
 auto_error_t open_dot_file(vivado_hls_t* hls, hdl_source_t* hdl);
 auto_error_t update_fop_tcl(vivado_hls_t* hls);
-
 auto_error_t hls_free(vivado_hls_t* hls);
