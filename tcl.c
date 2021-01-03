@@ -146,7 +146,7 @@ error_t generate_adapters(size_t array_size) {
     fprintf(address_adapter, "end address_adapter;\n\n");
     fprintf(address_adapter, "architecture Behavioral of address_adapter is\n");
     fprintf(address_adapter, "begin\n");
-    fprintf(address_adapter, "\tbram_addr <= axi_addr(12 downto 2);\n");
+    fprintf(address_adapter, "\tbram_addr <= axi_addr(%d downto 2);\n", msb);
     fprintf(address_adapter, "end Behavioral;\n");
 
     fclose(address_adapter);
@@ -243,11 +243,12 @@ error_t memory_connection_automation(FILE* tcl_script, hdl_source_t* hdl_source)
     return ERR_NONE;
 }
 
-error_t generate_final_script(project_t* project) {
+error_t generate_final_script(project_t* project, vivado_hls_t* hls) {
     CHECK_PARAM(project);
     CHECK_PARAM(project->hdl_source);
     CHECK_PARAM(project->hdl_source->arrays);
     CHECK_PARAM(project->hdl_source->params);
+    CHECK_PARAM(hls);
 
     axi_ip_t* axi_ip = &(project->axi_ip);
     FILE* tcl_script = fopen("final_script.tcl", "w");
@@ -258,6 +259,28 @@ error_t generate_final_script(project_t* project) {
     fprintf(tcl_script, "open_project %s/edit_%s_v1_0.xpr\n", axi_ip->path, axi_ip->name);
     fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
 
+    if(hls->nb_float_op > 0) {
+        fprintf(tcl_script, "add_files -norecurse -copy_to %s/%s_1.0/src {", axi_ip->path, axi_ip->name);
+
+        for(uint8_t i = 0; i < hls->nb_float_op; ++i) {
+            float_op_t* op = &(hls->float_ops[i]);
+            if(i == hls->nb_float_op - 1) {
+                fprintf(tcl_script, "%s", op->hdl_path);
+            }
+            else {
+                fprintf(tcl_script, "%s ", op->hdl_path);
+            }
+        }
+        fprintf(tcl_script, "}\n");
+    
+        for(uint8_t i = 0; i < hls->nb_float_op; ++i) {
+            float_op_t* op = &(hls->float_ops[i]);
+            fprintf(tcl_script, "source %s\n", op->script_path);
+        }
+    }
+
+    
+    
     //ipx::open_ipxact_file /home/antoine/Documents/ProjetSemestre/Automation/AutomateDynamatic/Vivado_final/ip_repo/axi_ip_dynamatic_test_1.0/component.xml
 
     fprintf(tcl_script, "ipx::open_ipxact_file %s/%s_1.0/component.xml\n", axi_ip->path, axi_ip->name);
@@ -432,6 +455,8 @@ error_t generate_hls_script(vivado_hls_t* hls) {
     }
     uint8_t last = 5;
 
+
+    //Could use hdl_soource->top_file_name
     char main_name[MAX_NAME_LENGTH];
     last_slash = strrchr(hls->source_path, '/');
     char* start_cpy;
@@ -475,7 +500,7 @@ error_t generate_hls_script(vivado_hls_t* hls) {
                     }
                 }
                 else {
-                    if(strcmp(dir->d_name, full_cpp_name) == 0 || strcmp(".h", strrchr(dir->d_name, '.') == 0)) {
+                    if(strcmp(dir->d_name, full_cpp_name) == 0 || strcmp(".h", strrchr(dir->d_name, '.')) == 0) {
                         strcpy(files_to_add[count++], dir->d_name);
                     }
                 }

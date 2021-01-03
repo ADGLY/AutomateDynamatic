@@ -248,7 +248,7 @@ error_t write_top_file(project_t* project) {
             fprintf(new_top_file, "\t\t%s_ready_out : out std_logic\n", param_name);
         }
         else {
-            fprintf(new_top_file, "\t\t%s_ready_out : out std_logic\n", param_name);
+            fprintf(new_top_file, "\t\t%s_ready_out : out std_logic;\n", param_name);
         }
     }
 

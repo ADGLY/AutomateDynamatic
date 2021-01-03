@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "hdl.h"
+#include "vivado.h"
 
 static const char* const write_ports[NB_BRAM_INTERFACE] = {
     "_address0", "_ce0", "_we0", "_dout0", "_din0"
@@ -36,23 +37,15 @@ error_t get_entity_name(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source->name);
 
     regex_t reg;
-    regmatch_t match[1];
-    int err = regcomp(&reg, "entity[ ]\\w+[ ]is", REG_EXTENDED);
+    regmatch_t match[2];
+    int err = regcomp(&reg, "entity[ ](\\w+)[ ]is", REG_EXTENDED);
     CHECK_COND(err != 0, ERR_REGEX, "Reg compile error !");
-    err = regexec(&reg, hdl_source->source, 1, (regmatch_t*)match, 0);
+    err = regexec(&reg, hdl_source->source, 2, (regmatch_t*)match, 0);
     CHECK_COND_DO(err != 0, ERR_REGEX, "Reg exec error !", regfree(&reg));
     regfree(&reg);
+    CHECK_LENGTH((size_t)(match[1].rm_eo - match[1].rm_so), MAX_NAME_LENGTH);
+    strncpy(hdl_source->name, hdl_source->source +match[1].rm_so, (size_t)(match[1].rm_eo - match[1].rm_so));
 
-    #define NAME_START_OFF 7
-    #define NAME_END 10
-    CHECK_PARAM(hdl_source->source);
-    char* str_match = (char*)(hdl_source->source + match[0].rm_so);
-    const size_t str_match_len = (size_t)(match[0].rm_eo - match[0].rm_so);
-    char* name_start = (char*)(str_match + NAME_START_OFF);
-    const size_t name_len = str_match_len - NAME_END;
-    CHECK_LENGTH(name_len, MAX_NAME_LENGTH);
-    strncpy(hdl_source->name, name_start, name_len);
-    hdl_source->name[name_len + 1] = '\0';
     return ERR_NONE;
 }
 
@@ -61,7 +54,7 @@ error_t get_arrays(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source->source);
 
     regex_t reg;
-    regmatch_t match[1];
+    regmatch_t match[2];
     const char* source_off = hdl_source->source;
 
     size_t alloc_size = 10;
@@ -71,11 +64,11 @@ error_t get_arrays(hdl_source_t* hdl_source) {
 
     size_t end_of_port = hdl_source->end_of_ports_decl;
 
-    int err = regcomp(&reg, "\\w+_address0", REG_EXTENDED);
+    int err = regcomp(&reg, "(\\w+)_address0", REG_EXTENDED);
     CHECK_COND_DO(err != 0, ERR_REGEX, "Reg compile error !", free((void*)arrays););
 
     //First part of the while loop
-    err = regexec(&reg, source_off, 1, (regmatch_t*)match, 0);
+    err = regexec(&reg, source_off, 2, (regmatch_t*)match, 0);
     CHECK_COND_DO(err != 0, ERR_REGEX, "Reg exec error !", regfree(&reg); free((void*)arrays););
     
     const char* str_match = source_off + match[0].rm_so;
@@ -84,14 +77,10 @@ error_t get_arrays(hdl_source_t* hdl_source) {
 
     while((size_t)(source_off - hdl_source->source) <= end_of_port || err != 0) {
 
-        size_t name_len = str_match_len - 9;
-        CHECK_COND_DO(name_len >= MAX_NAME_LENGTH, ERR_NAME_TOO_LONG, "", regfree(&reg); free((void*)arrays););
-
-
-        strncpy(arrays[array_count].name, str_match, name_len);
-        arrays[array_count].name[name_len + 1] = '\0';
+        CHECK_COND_DO((size_t)(match[1].rm_eo - match[1].rm_so) >= MAX_NAME_LENGTH, ERR_NAME_TOO_LONG, "", regfree(&reg); free((void*)arrays););
+        strncpy(arrays[array_count].name, str_match, (size_t)(match[1].rm_eo - match[1].rm_so));
         array_count++;
-
+        
         if(array_count == alloc_size) {
             alloc_size*=2;
             hdl_array_t* new_arrays = realloc(arrays, alloc_size * sizeof(hdl_array_t));
@@ -99,7 +88,7 @@ error_t get_arrays(hdl_source_t* hdl_source) {
             arrays = new_arrays;
         }
 
-        err = regexec(&reg, source_off, 1, (regmatch_t*)match, 0);
+        err = regexec(&reg, source_off, 2, (regmatch_t*)match, 0);
         CHECK_COND(err != 0 && array_count > 1, ERR_REGEX, "Reg exec error !");
 
         str_match = source_off + match[0].rm_so;
@@ -162,7 +151,7 @@ error_t get_params(hdl_source_t* hdl_source) {
 
 
     regex_t reg;
-    regmatch_t match[1];
+    regmatch_t match[2];
     const char* source_off = hdl_source->source;
     size_t alloc_size = 10;
     hdl_in_param_t* params = calloc(alloc_size, sizeof(hdl_in_param_t));
@@ -171,12 +160,12 @@ error_t get_params(hdl_source_t* hdl_source) {
     size_t end_of_port = hdl_source->end_of_ports_decl;
 
 
-    int err = regcomp(&reg, "\\w+_din ", REG_EXTENDED);
+    int err = regcomp(&reg, "(\\w+)_din[[:space:]]", REG_EXTENDED);
     CHECK_COND_DO(err != 0, ERR_REGEX, "Reg compile error !", free(params););
 
 
     //first iter
-    err = regexec(&reg, source_off, 1, (regmatch_t*)match, 0);
+    err = regexec(&reg, source_off, 2, (regmatch_t*)match, 0);
     CHECK_COND_DO(err != 0, ERR_REGEX, "Reg exec error !", regfree(&reg); free(params););
 
     const char* str_match = source_off + match[0].rm_so;
@@ -185,9 +174,9 @@ error_t get_params(hdl_source_t* hdl_source) {
 
 
     while((size_t)(source_off - hdl_source->source) <= end_of_port || err != 0) {
-        size_t name_len = str_match_len - 5;
+        size_t name_len = (size_t)(match[1].rm_eo - match[1].rm_so);
+        CHECK_CALL_DO(name_len >= MAX_NAME_LENGTH, "Name too long !", regfree(&reg); free(params););
         strncpy(params[param_count].name, str_match, name_len);
-        params[param_count].name[name_len + 1] = '\0';
         param_count++;
 
         if(param_count == alloc_size) {
@@ -198,7 +187,7 @@ error_t get_params(hdl_source_t* hdl_source) {
         }
 
         //TODO: Hacky
-        err = regexec(&reg, source_off, 1, (regmatch_t*)match, 0);
+        err = regexec(&reg, source_off, 2, (regmatch_t*)match, 0);
         if(err != 0) {
             break;
         }
@@ -225,15 +214,14 @@ error_t hdl_create(hdl_source_t* hdl_source) {
 
     CHECK_CALL(get_path(hdl_source->dir, "What is the directory of the Dynamatic output (hdl) ?"), "get_path failed !");
 
-    char top_file_name[MAX_NAME_LENGTH];
-    CHECK_CALL(get_name(top_file_name, "What is the name of the top file ?"), "get_name failed !");
+    CHECK_CALL(get_name(hdl_source->top_file_name, "What is the name of the top file ?"), "get_name failed !");
 
     strcpy(hdl_source->top_file_path, hdl_source->dir);
     hdl_source->top_file_path[strlen(hdl_source->dir)] = '/';
-    if(strlen(top_file_name) + strlen(hdl_source->dir) + 2 >= MAX_PATH_LENGTH) {
+    if(strlen(hdl_source->top_file_name) + strlen(hdl_source->dir) + 2 >= MAX_PATH_LENGTH) {
         fprintf(stderr, "Name too long !\n");
     }
-    strcpy(hdl_source->top_file_path + strlen(hdl_source->dir) + 1, top_file_name);
+    strcpy(hdl_source->top_file_path + strlen(hdl_source->dir) + 1, hdl_source->top_file_name);
     return ERR_NONE;
 }
 
@@ -249,6 +237,134 @@ error_t parse_hdl(hdl_source_t* hdl_source) {
     CHECK_CALL(fill_arrays_ports(hdl_source), "fill_arrays_ports failed !");
     CHECK_CALL(get_params(hdl_source), "get_params failed !");
     return ERR_NONE;
+}
+
+int compare(const void* elem1 , const void* elem2) {
+    const float_op_t* op1 = *((const float_op_t**)elem1);
+    const float_op_t* op2 = *((const float_op_t**)elem2);
+    if(op1->appearance_offset > op2->appearance_offset) {
+        return 1;
+    }
+    if(op1->appearance_offset < op2->appearance_offset) {
+        return -1;
+    }
+    return 0;
+}
+
+error_t update_arithmetic_units(project_t* project, vivado_hls_t* hls) {
+    CHECK_PARAM(project);
+    CHECK_PARAM(hls);
+
+    char arithmetic_path[MAX_PATH_LENGTH];
+    strcpy(arithmetic_path, project->axi_ip.path);
+    snprintf(arithmetic_path + strlen(arithmetic_path), MAX_NAME_LENGTH, "/%s_1.0/src/arithmetic_units.vhd", project->axi_ip.name);
+    char* arithmetic_source = get_source(arithmetic_path, NULL);
+    CHECK_NULL(arithmetic_source, ERR_FILE, "Could not read arithmetic source !");
+    char* source_off = arithmetic_source;
+
+    float_op_t** sorted_by_appearance = calloc(hls->nb_float_op, sizeof(float_op_t*));
+    uint8_t count = 0;
+    char pattern[MAX_NAME_LENGTH];
+    regex_t reg;
+    regmatch_t match[2];
+
+    //WARNING: The order should be valid because arith names are put in order in the list
+    //TODO: Make it more reliable
+    for(uint8_t i = 0; i < hls->nb_float_op; ++i) {
+        float_op_t* op = &(hls->float_ops[i]);
+        snprintf(pattern, MAX_NAME_LENGTH, "%s", op->name);
+
+        int err = regcomp(&reg, pattern, REG_EXTENDED);
+        CHECK_COND(err != 0, ERR_REGEX, "Regex compilation failed !");
+
+        err = regexec(&reg, source_off, 1, match, 0);
+        CHECK_COND_DO(err != 0, ERR_REGEX, "Regex exec failed !", regfree(&reg););
+
+        op->appearance_offset = (size_t)match[0].rm_so;
+        sorted_by_appearance[count++] = op;
+        qsort(sorted_by_appearance, count, sizeof(float_op_t*), compare);
+
+        regfree(&reg);
+    }
+
+    FILE* arithmetic_file = fopen(arithmetic_path, "w");
+    CHECK_COND_DO(arithmetic_path == NULL, ERR_FILE, "Could not open file arithmetic_units.vhd !", free(source_off););
+
+    for(uint8_t i = 0; i < hls->nb_float_op; ++i) {
+        float_op_t* op = sorted_by_appearance[i];
+        for(uint8_t j = 0; j < op->nb_arith_names; ++j) {
+            char* name = op->arith_unit_name_list[j];
+            snprintf(pattern, MAX_NAME_LENGTH, "entity %s", name);
+
+            int err = regcomp(&reg, pattern, REG_EXTENDED);
+            CHECK_COND(err != 0, ERR_REGEX, "Regex compilation failed !");
+
+            err = regexec(&reg, source_off, 1, match, 0);
+            CHECK_COND_DO(err != 0, ERR_REGEX, "Regex exec failed !", regfree(&reg););
+
+            regfree(&reg);
+
+            fwrite(source_off, sizeof(char), (size_t)match[0].rm_eo, arithmetic_file);
+            source_off += match[0].rm_eo;
+
+            snprintf(pattern, MAX_NAME_LENGTH, "component (\\w+) is");
+            err = regcomp(&reg, pattern, REG_EXTENDED);
+            CHECK_COND(err != 0, ERR_REGEX, "Regex compilation failed !");
+
+            err = regexec(&reg, source_off, 2, match, 0);
+            CHECK_COND_DO(err != 0, ERR_REGEX, "Regex exec failed !", regfree(&reg););
+
+            char component_name[MAX_NAME_LENGTH];
+            size_t name_len = (size_t)(match[1].rm_eo - match[1].rm_so);
+            strncpy(component_name, source_off + match[1].rm_so, name_len);
+            component_name[name_len] = '\0';
+
+            regfree(&reg);
+
+            fwrite(source_off, sizeof(char), (size_t)match[1].rm_so, arithmetic_file);
+            source_off += match[1].rm_so;
+
+            char hdl_file_name[MAX_NAME_LENGTH];
+            char* last_slash = strrchr(op->hdl_path, '/');
+            if(last_slash == NULL) {
+                strcpy(hdl_file_name, op->hdl_path);
+            }
+            else {
+                strcpy(hdl_file_name, last_slash + 1);
+            }
+
+            *strrchr(hdl_file_name, '.') = '\0';
+
+            fwrite(hdl_file_name, sizeof(char), strlen(hdl_file_name), arithmetic_file);
+            source_off += (match[1].rm_eo - match[1].rm_so);
+            fwrite(source_off, sizeof(char), (size_t)(match[0].rm_eo - match[1].rm_eo), arithmetic_file);
+            source_off = source_off + (size_t)(match[0].rm_eo - match[1].rm_eo);
+
+
+            snprintf(pattern, MAX_NAME_LENGTH, "\\w+[[:space:]]*\\:[[:space:]]*component[[:space:]]*(%s)", component_name);
+            err = regcomp(&reg, pattern, REG_EXTENDED);
+            CHECK_COND(err != 0, ERR_REGEX, "Regex compilation failed !");
+
+            err = regexec(&reg, source_off, 2, match, 0);
+            CHECK_COND_DO(err != 0, ERR_REGEX, "Regex exec failed !", regfree(&reg););
+
+            regfree(&reg);
+            
+            fwrite(source_off, sizeof(char), (size_t)match[1].rm_so, arithmetic_file);
+            source_off += match[0].rm_eo;
+
+            fwrite(hdl_file_name, sizeof(char), strlen(hdl_file_name), arithmetic_file);
+        }
+    }
+
+    fwrite(source_off, sizeof(char), strlen(source_off), arithmetic_file);
+    fclose(arithmetic_file);
+    free(arithmetic_source);
+
+
+    return ERR_NONE;
+
+
 }
 
 error_t hdl_free(hdl_source_t* hdl_source) {

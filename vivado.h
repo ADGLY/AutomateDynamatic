@@ -26,9 +26,12 @@ typedef struct {
     char hdl_path[MAX_PATH_LENGTH];
     char name[MAX_NAME_LENGTH];
     uint8_t latency;
+    size_t appearance_offset;
+    char** arith_unit_name_list;
+    size_t nb_arith_names;
 } float_op_t;
 
-typedef struct {
+typedef struct vivado_hls_ {
     char project_path[MAX_PATH_LENGTH];
     char* hls_source;
     char source_path[MAX_PATH_LENGTH];
@@ -37,7 +40,7 @@ typedef struct {
     uint8_t nb_float_op;
 } vivado_hls_t;
  
-typedef struct {
+typedef struct project_ {
     axi_ip_t axi_ip;
     char path[MAX_PATH_LENGTH];
     hdl_source_t* hdl_source;
