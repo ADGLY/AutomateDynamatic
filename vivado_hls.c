@@ -83,30 +83,24 @@ auto_error_t parse_hls(vivado_hls_t* hls, hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source->arrays);
 
     regex_t reg;
-    regmatch_t match[2];
+    regmatch_t match[3];
 
     const char* str_match;
     size_t str_match_len;
 
     const char* source_off = hls->hls_source;
 
-    advance_in_file_hls(&reg, match, &source_off, "return", &str_match, &str_match_len);
-
-    advance_in_file_hls(&reg, match, &source_off, "}", &str_match, &str_match_len);
-
-    size_t end = (size_t)(source_off - hls->hls_source) + 1;
-    hls->hls_source[end] = '\0';
     char* new_source = realloc(hls->hls_source, strlen(hls->hls_source) + 1);
     CHECK_NULL(new_source, ERR_MEM, "Realloc failed on hls source !");
 
     hls->hls_source = new_source;
 
     source_off = hls->hls_source;
-
-    int err = regcomp(&reg, "\\w+\\s+(\\w+)\\(", REG_EXTENDED);
+    
+    int err = regcomp(&reg, "\\w+\\s+(\\w+)\\s*(\\()[^(\\))]*\\)[[:space:]]*\\{", REG_EXTENDED);
     CHECK_COND(err != 0, ERR_REGEX, "Reg compile error !");
 
-    err = regexec(&reg, source_off, 2, (regmatch_t*)match, 0);
+    err = regexec(&reg, source_off, 3, (regmatch_t*)match, 0);
     CHECK_COND_DO(err != 0, ERR_REGEX, "Reg exec error !", regfree(&reg););
 
     regfree(&reg);
@@ -116,11 +110,25 @@ auto_error_t parse_hls(vivado_hls_t* hls, hdl_source_t* hdl_source) {
     strncpy(hls->fun_name, source_off + match[1].rm_so, sub_match_len);
     hls->fun_name[sub_match_len] = '\0';
 
+    size_t end_of_prototype = (size_t)(match[0].rm_eo - match[2].rm_eo);
+
     str_match = source_off + match[0].rm_so;
     str_match_len = (size_t)(match[0].rm_eo - match[0].rm_so);
-    source_off = (const char*)(source_off + match[0].rm_so + str_match_len);
+    source_off = (const char*)(source_off + match[2].rm_eo);
+   
+    err = regcomp(&reg, "\\w+\\s+(\\w+)\\s*(\\()[^(\\))]*\\)[[:space:]]*\\{", REG_EXTENDED);
+    CHECK_COND(err != 0, ERR_REGEX, "Reg compile error !");
 
-    
+    err = regexec(&reg, source_off, 3, (regmatch_t*)match, 0);
+    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg exec error !", regfree(&reg););
+
+    regfree(&reg);
+
+    char save = source_off[match[0].rm_so - 1];
+    char* modif = &source_off[match[0].rm_so - 1];
+    *modif = '\0';
+
+
 
     for(size_t i = 0; i < hdl_source->nb_arrays; ++i) {
         const char* name = hdl_source->arrays[i].name;
@@ -134,35 +142,66 @@ auto_error_t parse_hls(vivado_hls_t* hls, hdl_source_t* hdl_source) {
         CHECK_COND_DO(err != 0, ERR_REGEX, "Reg exec error !", regfree(&reg););
         regfree(&reg);
         //Still works if the usal types aren't used
-        if(err == REG_NOMATCH) {
+    
+        str_match = source_off + match[0].rm_so;
+        str_match_len = (size_t)(match[0].rm_eo - match[0].rm_so);
+
+        hdl_source->arrays[i].read = false;
+        hdl_source->arrays[i].write = false;
+
+        if(strncmp("in_", str_match, 3) == 0) {
+            hdl_source->arrays[i].read = true;
+        }
+        else if(strncmp("inout_", str_match, 6) == 0) {
             hdl_source->arrays[i].read = true;
             hdl_source->arrays[i].write = true;
         }
+        else if(strncmp("out_", str_match, 4) == 0) {
+            hdl_source->arrays[i].write = true;
+        }
         else {
-            str_match = source_off + match[0].rm_so;
-            str_match_len = (size_t)(match[0].rm_eo - match[0].rm_so);
-    
-            hdl_source->arrays[i].read = false;
-            hdl_source->arrays[i].write = false;
-    
-            if(strncmp("in_", str_match, 3) == 0) {
+            //Read matching
+            const char* look_for_arrays = source_off + end_of_prototype;
+
+            snprintf(pattern, MAX_NAME_LENGTH, "%s[[:space:]]*\\[[^\\]]*\\][^;=]*;", name);
+            err = regcomp(&reg, pattern, REG_EXTENDED);
+            CHECK_COND(err != 0, ERR_REGEX, "Reg compile error !");
+
+
+            err = regexec(&reg, look_for_arrays, 1, (regmatch_t*)match, 0);
+            CHECK_COND_DO(err != 0 && err != REG_NOMATCH, ERR_REGEX, "Failed to macth !", regfree(&reg););
+            regfree(&reg);
+            uint8_t nb_no_match = 0;
+            if(err == 0) {
                 hdl_source->arrays[i].read = true;
             }
-            else if(strncmp("inout_", str_match, 6) == 0) {
-                hdl_source->arrays[i].read = true;
-                hdl_source->arrays[i].write = true;
+            else {
+                nb_no_match++;
             }
-            else if(strncmp("out_", str_match, 4) == 0) {
+
+
+            //Write matching
+
+            snprintf(pattern, MAX_NAME_LENGTH, "%s[[:space:]]*\\[[^\\]]*\\][^=;]*=[^;]*;", name);
+            err = regcomp(&reg, pattern, REG_EXTENDED);
+            CHECK_COND(err != 0, ERR_REGEX, "Reg compile error !");
+
+            err = regexec(&reg, look_for_arrays, 1, (regmatch_t*)match, 0);
+            CHECK_COND_DO(err != 0 && err != REG_NOMATCH, ERR_REGEX, "Failed to macth !", regfree(&reg););
+            regfree(&reg);
+            if(err == 0) {
                 hdl_source->arrays[i].write = true;
             }
             else {
-                hdl_source->arrays[i].read = true;
-                hdl_source->arrays[i].write = true;
+                nb_no_match++;
+            }
+            if(nb_no_match == 2) {
+                CHECK_CALL(ERR_REGEX, "Error while trying to match on arrays !");
             }
         }
 
     }
-
+    *modif = save;
     return ERR_NONE;
 }
 
