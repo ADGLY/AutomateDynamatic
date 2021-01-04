@@ -41,6 +41,7 @@ typedef struct {
     size_t end_of_ports_decl;
     size_t end_arrays;
     char exec_path[MAX_PATH_LENGTH];
+    size_t end_out_width;
 } hdl_source_t;
 
 

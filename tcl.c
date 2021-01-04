@@ -44,7 +44,8 @@ auto_error_t generate_AXI_script(project_t* project, axi_ip_t* axi_ip) {
 
     strcpy(axi_ip->name, "axi_ip_dynamatic_test");
     strcpy(axi_ip->interface_name, "CSR");
-    axi_ip->nb_slave_registers = project->hdl_source->nb_params + 2;
+    //Added end_out
+    axi_ip->nb_slave_registers = project->hdl_source->nb_params + 3;
 
     //Minimum is four slave registers
     if(axi_ip->nb_slave_registers < 4) {
@@ -251,7 +252,6 @@ auto_error_t generate_final_script(project_t* project, vivado_hls_t* hls, axi_ip
     CHECK_PARAM(project);
     CHECK_PARAM(project->hdl_source);
     CHECK_PARAM(project->hdl_source->arrays);
-    CHECK_PARAM(project->hdl_source->params);
     CHECK_PARAM(hls);
 
     FILE* tcl_script = fopen("final_script.tcl", "w");

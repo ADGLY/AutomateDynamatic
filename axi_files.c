@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <inttypes.h>
 #include "axi_files.h"
 
 
@@ -94,7 +95,7 @@ auto_error_t write_array_ports(FILE* file, bram_interface_t* interface) {
     return ERR_NONE;
 }
 
-auto_error_t write_array_ports_wo_prefix(FILE* file, bram_interface_t* interface) {
+auto_error_t write_array_ports_wo_prefix(FILE* file, bram_interface_t* interface, bool last) {
     CHECK_PARAM(file);
     CHECK_PARAM(interface);
 
@@ -109,14 +110,19 @@ auto_error_t write_array_ports_wo_prefix(FILE* file, bram_interface_t* interface
 
     fprintf(file, "\t\t%s", interface->dout);
     fprintf(file, "%s\n", " : out std_logic_vector (31 downto 0);");
-
-    fprintf(file, "\t\t%s", interface->din);
-    fprintf(file, "%s\n", " : in std_logic_vector (31 downto 0);");
+    if(last) {
+        fprintf(file, "\t\t%s", interface->din);
+        fprintf(file, "%s\n", " : in std_logic_vector (31 downto 0)");
+    }
+    else {
+        fprintf(file, "\t\t%s", interface->din);
+        fprintf(file, "%s\n", " : in std_logic_vector (31 downto 0);");
+    }
 
     return ERR_NONE;
 }
 
-auto_error_t write_arrays_port_map(FILE* file, bram_interface_t* interface) {
+auto_error_t write_arrays_port_map(FILE* file, bram_interface_t* interface, bool last) {
     CHECK_PARAM(file);
     CHECK_PARAM(interface);
 
@@ -134,8 +140,14 @@ auto_error_t write_arrays_port_map(FILE* file, bram_interface_t* interface) {
     fprintf(file, "\t\t%s", interface->dout);
     fprintf(file, " => %s%s,\n", prefix, interface->dout);
 
-    fprintf(file, "\t\t%s", interface->din);
-    fprintf(file, " => %s%s,\n", prefix, interface->din);
+    if(last) {
+        fprintf(file, "\t\t%s", interface->din);
+        fprintf(file, " => %s%s\n", prefix, interface->din);
+    } else {
+        fprintf(file, "\t\t%s", interface->din);
+        fprintf(file, " => %s%s,\n", prefix, interface->din);
+    }
+    
 
     return ERR_NONE;
 }
@@ -165,8 +177,6 @@ auto_error_t advance_in_file(regex_t* reg, regmatch_t* match, FILE* file, const 
 auto_error_t write_top_file(project_t* project, axi_ip_t* axi_ip) {
     CHECK_PARAM(project);
     CHECK_PARAM(project->hdl_source);
-    CHECK_PARAM(project->hdl_source->arrays);
-    CHECK_PARAM(project->hdl_source->params);
     CHECK_PARAM(axi_ip->axi_files.top_file)
 
     regex_t reg;
@@ -196,7 +206,7 @@ auto_error_t write_top_file(project_t* project, axi_ip_t* axi_ip) {
     fprintf(new_top_file, "\n");
     fprintf(new_top_file, "\t\taxi_start_valid : out std_logic;\n");
     fprintf(new_top_file, "\t\taxi_start_ready : in std_logic;\n");
-    fprintf(new_top_file, "\t\taxi_end_out : in std_logic_vector(0 downto 0);\n");
+    fprintf(new_top_file, "\t\taxi_end_out : in std_logic_vector(%zu downto 0);\n", hdl_source->end_out_width - 1);
     fprintf(new_top_file, "\t\taxi_end_valid : in std_logic;\n");
     fprintf(new_top_file, "\t\taxi_end_ready : out std_logic;\n");
 
@@ -220,18 +230,25 @@ auto_error_t write_top_file(project_t* project, axi_ip_t* axi_ip) {
     fprintf(new_top_file, "\t\tstart_in:  in std_logic_vector (0 downto 0);\n");
     fprintf(new_top_file, "\t\tstart_valid:  in std_logic;\n");
     fprintf(new_top_file, "\t\tstart_ready:  out std_logic;\n");
-    fprintf(new_top_file, "\t\tend_out:  out std_logic_vector (0 downto 0);\n");
+    fprintf(new_top_file, "\t\tend_out:  out std_logic_vector (%zu downto 0);\n", hdl_source->end_out_width - 1);
     fprintf(new_top_file, "\t\tend_valid:  out std_logic;\n");
-    fprintf(new_top_file, "\t\tend_ready:  in std_logic;\n");
+    if(hdl_source->nb_arrays == 0 && hdl_source->nb_params == 0) {
+        fprintf(new_top_file, "\t\tend_ready:  in std_logic\n");
+    }
+    else {
+        fprintf(new_top_file, "\t\tend_ready:  in std_logic;\n");
+    }
+
+    bool last;
 
     for(size_t i = 0; i < hdl_source->nb_arrays; ++i) {
-        CHECK_CALL_DO(write_array_ports_wo_prefix(new_top_file, &(hdl_source->arrays[i].write_ports)), "write_array_ports_wo_prefix failed !", 
+        last = (i == hdl_source->nb_arrays - 1  && hdl_source->nb_params == 0);
+        CHECK_CALL_DO(write_array_ports_wo_prefix(new_top_file, &(hdl_source->arrays[i].write_ports), false), "write_array_ports_wo_prefix failed !", 
         fclose(new_top_file));
-        CHECK_CALL_DO(write_array_ports_wo_prefix(new_top_file, &(hdl_source->arrays[i].read_ports)), "write_array_ports_wo_prefix failed !", 
+        CHECK_CALL_DO(write_array_ports_wo_prefix(new_top_file, &(hdl_source->arrays[i].read_ports), last), "write_array_ports_wo_prefix failed !", 
         fclose(new_top_file));
     }
 
-    CHECK_COND_DO(hdl_source->params == NULL, ERR_BAD_PARAM, "params is NULL !", fclose(new_top_file););
     for(size_t i = 0; i < hdl_source->nb_params; ++i) {
         const char* param_name = hdl_source->params[i].name;
         fprintf(new_top_file, "\t\t%s_din : in std_logic_vector (31 downto 0);\n", param_name);
@@ -252,7 +269,7 @@ auto_error_t write_top_file(project_t* project, axi_ip_t* axi_ip) {
     fprintf(new_top_file, "\tsignal dynamatic_rst : std_logic;\n");
     fprintf(new_top_file, "\tsignal dynamatic_start_valid : std_logic;\n");
     fprintf(new_top_file, "\tsignal dynamatic_start_ready : std_logic;\n");
-    fprintf(new_top_file, "\tsignal dynamatic_end_out : std_logic_vector(0 downto 0);\n");
+    fprintf(new_top_file, "\tsignal dynamatic_end_out : std_logic_vector(%zu downto 0);\n", hdl_source->end_out_width - 1);
     fprintf(new_top_file, "\tsignal dynamatic_end_valid : std_logic;\n");
     fprintf(new_top_file, "\tsignal dynamatic_end_ready : std_logic;\n");
 
@@ -290,12 +307,18 @@ auto_error_t write_top_file(project_t* project, axi_ip_t* axi_ip) {
     fprintf(new_top_file, "\t\tstart_ready => dynamatic_start_ready,\n");
     fprintf(new_top_file, "\t\tend_out => dynamatic_end_out,\n");
     fprintf(new_top_file, "\t\tend_valid => dynamatic_end_valid,\n");
-    fprintf(new_top_file, "\t\tend_ready => dynamatic_end_ready,\n");
+    if(hdl_source->nb_arrays == 0 && hdl_source->nb_params == 0) {
+        fprintf(new_top_file, "\t\tend_ready => dynamatic_end_ready\n");
+    }
+    else {
+        fprintf(new_top_file, "\t\tend_ready => dynamatic_end_ready,\n");
+    }
 
     for(size_t i = 0; i < hdl_source->nb_arrays; ++i) {
-        CHECK_CALL_DO(write_arrays_port_map(new_top_file, &(hdl_source->arrays[i].write_ports)), "write_arrays_port_map failed !", 
+        last = (i == hdl_source->nb_arrays - 1  && hdl_source->nb_params == 0);
+        CHECK_CALL_DO(write_arrays_port_map(new_top_file, &(hdl_source->arrays[i].write_ports), false), "write_arrays_port_map failed !", 
         fclose(new_top_file));
-        CHECK_CALL_DO(write_arrays_port_map(new_top_file, &(hdl_source->arrays[i].read_ports)), "write_arrays_port_map failed !", 
+        CHECK_CALL_DO(write_arrays_port_map(new_top_file, &(hdl_source->arrays[i].read_ports), last), "write_arrays_port_map failed !", 
         fclose(new_top_file));
     }
 
@@ -330,7 +353,6 @@ auto_error_t write_axi_file(project_t* project, axi_ip_t* axi_ip) {
     CHECK_PARAM(project);
     CHECK_PARAM(project->hdl_source);
     CHECK_PARAM(axi_ip->axi_files.axi_file);
-    CHECK_PARAM(project->hdl_source->params);
 
     regex_t reg;
     regmatch_t match[1];
@@ -347,11 +369,9 @@ auto_error_t write_axi_file(project_t* project, axi_ip_t* axi_ip) {
 
     fprintf(new_axi_file, "\t\taxi_start_valid : out std_logic;\n");
     fprintf(new_axi_file, "\t\taxi_start_ready : in std_logic;\n");
-    fprintf(new_axi_file, "\t\taxi_end_out : in std_logic_vector(0 downto 0);\n");
+    fprintf(new_axi_file, "\t\taxi_end_out : in std_logic_vector(%zu downto 0);\n", hdl_source->end_out_width - 1);
     fprintf(new_axi_file, "\t\taxi_end_valid : in std_logic;\n");
     fprintf(new_axi_file, "\t\taxi_end_ready : out std_logic;\n");
-
-    CHECK_COND_DO(hdl_source->params == NULL, ERR_BAD_PARAM, "params is NULL !", fclose(new_axi_file););
 
     for(size_t i = 0; i < hdl_source->nb_params; ++i) {
         const char* param_name = hdl_source->params[i].name;
@@ -371,7 +391,32 @@ auto_error_t write_axi_file(project_t* project, axi_ip_t* axi_ip) {
     
     //We want to erase slv_reg1;
     fseek(new_axi_file, -10, SEEK_CUR);
-    fprintf(new_axi_file, "(31 downto 3 => '0') & axi_start_ready & axi_end_out & axi_end_valid;\n");
+    fprintf(new_axi_file, "(31 downto 2 => '0') & axi_start_ready & axi_end_valid;\n");
+
+
+    size_t last_reg = hdl_source->nb_params + 3 - 1;
+    if(last_reg + 1 < 4)  {
+        last_reg = 4;
+    }
+    char pattern[MAX_NAME_LENGTH];
+    int written = snprintf(pattern, MAX_NAME_LENGTH, "reg_data_out <= slv_reg%zu", last_reg);
+    CHECK_COND_DO(written >= MAX_NAME_LENGTH, ERR_NAME_TOO_LONG, "Name too long !", fclose(new_axi_file););
+
+    CHECK_CALL_DO(advance_in_file(&reg, match, new_axi_file, &axi_file_off, pattern), "advance in file failed !",
+        fclose(new_axi_file););
+
+    int16_t nb_removed = 0;
+    if(last_reg < 10) {
+        nb_removed = 10;
+    }
+    else if(last_reg >= 10 && last_reg < 100) {
+        nb_removed = 11;
+    }
+    else {
+        nb_removed = 12;
+    }
+    fseek(new_axi_file, -nb_removed, SEEK_CUR);
+    fprintf(new_axi_file, " axi_end_out;");
 
     CHECK_CALL_DO(advance_in_file(&reg, match, new_axi_file, &axi_file_off, "-- Add user logic here"), "advance in file failed !",
         fclose(new_axi_file););

@@ -104,11 +104,17 @@ auto_error_t get_arrays(hdl_source_t* hdl_source) {
 
         CHECK_CALL_DO(iterate_hdl(&reg, &source_off, match, &str_match, &str_match_len, &err, &array_count), "iterate_hdl_failed !", free((void*)arrays););
     }
-    hdl_array_t* new_arrays = realloc(arrays, array_count * sizeof(hdl_array_t));
-    CHECK_COND_DO(new_arrays == NULL, ERR_MEM, "Failed to realloc !", regfree(&reg); free(arrays));
-    hdl_source->arrays = new_arrays;
-    hdl_source->nb_arrays = array_count;
-    hdl_source->end_arrays = end_arrays;
+    if(array_count == 0) {
+        hdl_source->arrays = NULL;
+        hdl_source->nb_arrays = array_count;
+    }
+    else {
+        hdl_array_t* new_arrays = realloc(arrays, array_count * sizeof(hdl_array_t));
+        CHECK_COND_DO(new_arrays == NULL, ERR_MEM, "Failed to realloc !", regfree(&reg); free(arrays));
+        hdl_source->arrays = new_arrays;
+        hdl_source->nb_arrays = array_count;
+        hdl_source->end_arrays = end_arrays;
+    }
     regfree(&reg);
     return ERR_NONE;
 }
@@ -192,10 +198,16 @@ auto_error_t get_params(hdl_source_t* hdl_source) {
 
         CHECK_CALL_DO(iterate_hdl(&reg, &source_off, match, &str_match, &str_match_len, &err, NULL), "iterate_hdl_failed !", free((void*)params););
     }
-    hdl_in_param_t* new_params = realloc(params, sizeof(hdl_in_param_t) * param_count);
-    CHECK_COND_DO(new_params == NULL, ERR_MEM, "Realloc failed for params !", regfree(&reg); free(params));
-    hdl_source->params = new_params;
-    hdl_source->nb_params = param_count;
+    if(param_count == 0) {
+        hdl_source->params = NULL;
+        hdl_source->nb_params = param_count;
+    }
+    else {
+        hdl_in_param_t* new_params = realloc(params, sizeof(hdl_in_param_t) * param_count);
+        CHECK_COND_DO(new_params == NULL, ERR_MEM, "Realloc failed for params !", regfree(&reg); free(params));
+        hdl_source->params = new_params;
+        hdl_source->nb_params = param_count;
+    }
     regfree(&reg);
     return ERR_NONE;
 }
@@ -221,6 +233,19 @@ auto_error_t hdl_create(hdl_source_t* hdl_source) {
     return ERR_NONE;
 }
 
+auto_error_t get_end_out_width(hdl_source_t* hdl_source) {
+    regmatch_t match[2];
+    CHECK_CALL(get_simple_info(hdl_source, "end_out[[:space:]]*:[[:space:]]*out[[:space:]]*std_logic_vector[[:space:]]*\\(([[:digit:]]+)", match, 2), "get_simple_info failed !");
+    char width[MAX_NAME_LENGTH];
+    size_t len = (size_t)(match[1].rm_eo - match[1].rm_so);
+    CHECK_LENGTH(len - 1, MAX_NAME_LENGTH);
+
+    strncpy(width, hdl_source->source + match[1].rm_so, len);
+    width[len] = '\0';
+    hdl_source->end_out_width = (size_t)(strtoll(width, NULL, 10) + 1);
+    return ERR_NONE;
+}
+
 auto_error_t parse_hdl(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);
     char* source = get_source(hdl_source->top_file_path, NULL);
@@ -228,6 +253,7 @@ auto_error_t parse_hdl(hdl_source_t* hdl_source) {
     hdl_source->source = source;
 
     CHECK_CALL(get_end_of_ports_decl(hdl_source), "get_end_of_ports_decl failed !");
+    CHECK_CALL(get_end_out_width(hdl_source), "get_end_out_width failed !");
     CHECK_CALL(get_entity_name(hdl_source), "get_entity_name failed !");
     CHECK_CALL(get_arrays(hdl_source), "get_arrays failed !");
     CHECK_CALL(fill_arrays_ports(hdl_source), "fill_arrays_ports failed !");

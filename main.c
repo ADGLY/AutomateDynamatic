@@ -19,6 +19,9 @@
 // /home/antoine/Documents/Dynamatic/TestBench/hdl
 // histogram_elaborated_optimized.vhd
 // /home/antoine/Documents/Dynamatic/TestBench_2/hdl
+
+// /home/antoine/Documents/Dynamatic/BigExamples/examples/fir/hdl
+// fir_elaborated_optimized.vhd
 int main(void) {
     
     hdl_source_t hdl_source;

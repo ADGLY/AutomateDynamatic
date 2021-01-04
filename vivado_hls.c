@@ -176,6 +176,15 @@ auto_error_t parse_hls(vivado_hls_t* hls, hdl_source_t* hdl_source) {
                 hdl_source->arrays[i].read = true;
             }
             else {
+                //TODO: Detection for things like this *array or *(array + i * sizeof(char)) = value; --> Be careful about the fact that there can be ) in the expression
+                /*snprintf(pattern, MAX_NAME_LENGTH, "(\\*%s|        \\*\\(          )[^;=]*;", name);
+
+                err = regcomp(&reg, pattern, REG_EXTENDED);
+                CHECK_COND(err != 0, ERR_REGEX, "Reg compile error !");
+
+                err = regexec(&reg, look_for_arrays, 1, (regmatch_t*)match, 0);
+                CHECK_COND_DO(err != 0 && err != REG_NOMATCH, ERR_REGEX, "Failed to macth !", regfree(&reg););
+                regfree(&reg);*/
                 nb_no_match++;
             }
 
@@ -197,6 +206,8 @@ auto_error_t parse_hls(vivado_hls_t* hls, hdl_source_t* hdl_source) {
             }
             if(nb_no_match == 2) {
                 CHECK_CALL(ERR_REGEX, "Error while trying to match on arrays !");
+                hdl_source->arrays[i].read = true;
+                hdl_source->arrays[i].write = true;
             }
         }
 
