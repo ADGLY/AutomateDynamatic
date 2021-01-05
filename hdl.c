@@ -218,7 +218,7 @@ auto_error_t hdl_create(hdl_source_t* hdl_source) {
     memset(hdl_source, 0, sizeof(hdl_source_t));
 
     char* result = getcwd(hdl_source->exec_path, MAX_PATH_LENGTH);
-    CHECK_COND(result == NULL, ERR_FILE, "getcwd error !");
+    CHECK_COND(result == NULL, ERR_IO, "getcwd error !");
 
     CHECK_CALL(get_path(hdl_source->dir, "What is the directory of the Dynamatic output (hdl) ?"), "get_path failed !");
 
@@ -249,7 +249,7 @@ auto_error_t get_end_out_width(hdl_source_t* hdl_source) {
 auto_error_t parse_hdl(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);
     char* source = get_source(hdl_source->top_file_path, NULL);
-    CHECK_NULL(source, ERR_FILE, "Did not manage to read source file !");
+    CHECK_NULL(source, ERR_IO, "Did not manage to read source file !");
     hdl_source->source = source;
 
     CHECK_CALL(get_end_of_ports_decl(hdl_source), "get_end_of_ports_decl failed !");

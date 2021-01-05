@@ -2,7 +2,7 @@
 
 
 typedef enum {
-    ERR_NONE, ERR_MEM, ERR_FILE, ERR_REGEX, ERR_NAME_TOO_LONG, ERR_BAD_PARAM, ERR_PATH
+    ERR_NONE, ERR_MEM, ERR_IO, ERR_REGEX, ERR_NAME_TOO_LONG, ERR_BAD_PARAM, ERR_PATH
 } auto_error_t;
 
 #define CHECK_PARAM(param)                                          \

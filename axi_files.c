@@ -51,13 +51,13 @@ auto_error_t read_axi_files(axi_ip_t* axi_ip) {
     int written = snprintf(top_file_name, MAX_NAME_LENGTH, "%s_v1_0.vhd", axi_ip->name);
     CHECK_LENGTH(written, MAX_NAME_LENGTH);
     char* top_file = read_hdl_file(axi_ip, axi_ip->axi_files.top_file_path, top_file_name);
-    CHECK_NULL(top_file, ERR_FILE, "Didn't manage to read the top HDL file of the axi IP");
+    CHECK_NULL(top_file, ERR_IO, "Didn't manage to read the top HDL file of the axi IP");
 
     char axi_file_name[MAX_NAME_LENGTH];
     written = snprintf(axi_file_name, MAX_NAME_LENGTH, "%s_v1_0_%s.vhd", axi_ip->name, axi_ip->interface_name);
     CHECK_COND_DO(written >= MAX_NAME_LENGTH, ERR_NAME_TOO_LONG, "Name too long !", free((void*)top_file););
     char* axi_file = read_hdl_file(axi_ip, axi_ip->axi_files.axi_file_path, axi_file_name);
-    CHECK_COND_DO(axi_file == NULL, ERR_FILE, "Didn't manage to read the top HDL file of the axi IP", free((void*)top_file););
+    CHECK_COND_DO(axi_file == NULL, ERR_IO, "Didn't manage to read the top HDL file of the axi IP", free((void*)top_file););
 
     axi_ip->axi_files.top_file = top_file;
     axi_ip->axi_files.axi_file = axi_file;
@@ -183,7 +183,7 @@ auto_error_t write_top_file(project_t* project, axi_ip_t* axi_ip) {
     regmatch_t match[1];
 
     FILE* new_top_file = fopen("top_file.tmp", "w");
-    CHECK_NULL(new_top_file, ERR_FILE, "Could not open file : top_file.tmp");
+    CHECK_NULL(new_top_file, ERR_IO, "Could not open file : top_file.tmp");
 
     const char* top_file_off = axi_ip->axi_files.top_file;
 
@@ -358,7 +358,7 @@ auto_error_t write_axi_file(project_t* project, axi_ip_t* axi_ip) {
     regmatch_t match[1];
 
     FILE* new_axi_file = fopen("axi_file.tmp", "w");
-    CHECK_NULL(new_axi_file, ERR_FILE, "Could not open file : axi_file.tmp");
+    CHECK_NULL(new_axi_file, ERR_IO, "Could not open file : axi_file.tmp");
 
     const char* axi_file_off = axi_ip->axi_files.axi_file;
 
@@ -449,12 +449,12 @@ auto_error_t update_top_file(project_t* project, axi_ip_t* axi_ip) {
     CHECK_CALL(write_top_file(project, axi_ip), "write_top_file failed !");
     size_t size;
     char* new_top_file_src = get_source("top_file.tmp", &size);
-    CHECK_COND(new_top_file_src == NULL, ERR_FILE, "get_source failed !");
+    CHECK_COND(new_top_file_src == NULL, ERR_IO, "get_source failed !");
     remove("top_file.tmp");
 
     //Open real file and replace its content
     FILE* top_file = fopen(axi_ip->axi_files.top_file_path, "w");
-    CHECK_COND_DO(top_file == NULL, ERR_FILE, "Could not open file : top hdl file", free((void*)new_top_file_src); fclose(top_file););
+    CHECK_COND_DO(top_file == NULL, ERR_IO, "Could not open file : top hdl file", free((void*)new_top_file_src); fclose(top_file););
 
     fwrite(new_top_file_src, sizeof(char), size, top_file);
     fclose(top_file);
@@ -471,12 +471,12 @@ auto_error_t update_axi_file(project_t* project, axi_ip_t* axi_ip) {
 
     size_t size;
     char* new_axi_file_src = get_source("axi_file.tmp", &size);
-    CHECK_COND(new_axi_file_src == NULL, ERR_FILE, "get_source failed !");
+    CHECK_COND(new_axi_file_src == NULL, ERR_IO, "get_source failed !");
     remove("axi_file.tmp");
 
     //Open real file and replace its content
     FILE* axi_file = fopen(axi_ip->axi_files.axi_file_path, "w");
-    CHECK_COND_DO(axi_file == NULL, ERR_FILE, "Could not open file : axi hdl file", free((void*)new_axi_file_src); fclose(axi_file););
+    CHECK_COND_DO(axi_file == NULL, ERR_IO, "Could not open file : axi hdl file", free((void*)new_axi_file_src); fclose(axi_file););
     fwrite(new_axi_file_src, sizeof(char), size, axi_file);
     fclose(axi_file);
     free((void*)new_axi_file_src);

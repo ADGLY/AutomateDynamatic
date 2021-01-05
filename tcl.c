@@ -15,7 +15,7 @@ auto_error_t generate_MAIN_script(project_t* project) {
     CHECK_PARAM(project);
 
     FILE* tcl_script = fopen("generate_project.tcl", "w");
-    CHECK_NULL(tcl_script, ERR_FILE, "Could not open file : generate_project.tcl");
+    CHECK_NULL(tcl_script, ERR_IO, "Could not open file : generate_project.tcl");
 
     fprintf(tcl_script, "create_project %s %s/%s -part xc7z045ffg900-2\n", 
     project->name, project->path, project->name);
@@ -53,7 +53,7 @@ auto_error_t generate_AXI_script(project_t* project, axi_ip_t* axi_ip) {
     }
 
     FILE* tcl_script = fopen("generate_axi_ip.tcl", "w");
-    CHECK_NULL(tcl_script, ERR_FILE, "Could not open file : generate_axi_ip.tcl");
+    CHECK_NULL(tcl_script, ERR_IO, "Could not open file : generate_axi_ip.tcl");
 
     fprintf(tcl_script, "create_peripheral user.org user %s 1.0 -dir %s\n", axi_ip->name,
     axi_ip->path);
@@ -78,7 +78,7 @@ auto_error_t generate_AXI_script(project_t* project, axi_ip_t* axi_ip) {
     char files_to_add[MAX_DYNAMATIC_FILES][MAX_NAME_LENGTH];
     DIR *d;
     d = opendir(project->hdl_source->dir);
-    CHECK_COND_DO(d == NULL, ERR_FILE, "Could not open dir !", fclose(tcl_script););
+    CHECK_COND_DO(d == NULL, ERR_IO, "Could not open dir !", fclose(tcl_script););
 
     int nb_files = 0;
     
@@ -121,7 +121,7 @@ auto_error_t generate_AXI_script(project_t* project, axi_ip_t* axi_ip) {
 
 auto_error_t generate_adapters(size_t array_size) {
     FILE* write_enb_adapter = fopen("write_enb_adapter.vhd", "w");
-    CHECK_NULL(write_enb_adapter, ERR_FILE, "Could not open file : write_enb_adapter.vhd");
+    CHECK_NULL(write_enb_adapter, ERR_IO, "Could not open file : write_enb_adapter.vhd");
 
     fprintf(write_enb_adapter, "library IEEE;\n");
     fprintf(write_enb_adapter, "use IEEE.STD_LOGIC_1164.ALL;\n\n");
@@ -138,7 +138,7 @@ auto_error_t generate_adapters(size_t array_size) {
     fclose(write_enb_adapter);
 
     FILE* address_adapter = fopen("address_adapter.vhd", "w");
-    CHECK_NULL(address_adapter, ERR_FILE, "Could not open file : address_adapter.vhd");
+    CHECK_NULL(address_adapter, ERR_IO, "Could not open file : address_adapter.vhd");
 
     fprintf(address_adapter, "library IEEE;\n");
     fprintf(address_adapter, "use IEEE.STD_LOGIC_1164.ALL;\n\n");
@@ -255,7 +255,7 @@ auto_error_t generate_final_script(project_t* project, vivado_hls_t* hls, axi_ip
     CHECK_PARAM(hls);
 
     FILE* tcl_script = fopen("final_script.tcl", "w");
-    CHECK_NULL(tcl_script, ERR_FILE, "Could not open file : final_script.tcl");
+    CHECK_NULL(tcl_script, ERR_IO, "Could not open file : final_script.tcl");
 
     fprintf(tcl_script, "open_project %s/edit_%s_v1_0.xpr\n", axi_ip->path, axi_ip->name);
     fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
@@ -290,6 +290,8 @@ auto_error_t generate_final_script(project_t* project, vivado_hls_t* hls, axi_ip
 
     fprintf(tcl_script, "update_ip_catalog -rebuild -repo_path %s/%s_1.0\n", axi_ip->path, axi_ip->name);
     fprintf(tcl_script, "close_project\n");
+
+    //-----------------------------------------------------------------------
 
     fprintf(tcl_script, "open_project %s/%s/%s.xpr\n", project->path, project->name, project->name);
     fprintf(tcl_script, "update_ip_catalog -rebuild\n");
@@ -386,7 +388,7 @@ auto_error_t generate_hls_script(vivado_hls_t* hls) {
     CHECK_PARAM(hls);
 
     FILE* tcl_script = fopen("hls_script.tcl", "w");
-    CHECK_NULL(tcl_script, ERR_FILE, "Could not open file : hls_script.tcl");
+    CHECK_NULL(tcl_script, ERR_IO, "Could not open file : hls_script.tcl");
     
     fprintf(tcl_script, "open_project -reset vivado_hls\n");
     fprintf(tcl_script, "set_top %s\n", hls->fun_name);
@@ -433,7 +435,7 @@ auto_error_t generate_hls_script(vivado_hls_t* hls) {
 
     DIR *d;
     d = opendir(dir_path);
-    CHECK_COND_DO(d == NULL, ERR_FILE, "Could not open dir !", regfree(&reg); fclose(tcl_script); regfree(&reg_cpp_name););
+    CHECK_COND_DO(d == NULL, ERR_IO, "Could not open dir !", regfree(&reg); fclose(tcl_script); regfree(&reg_cpp_name););
 
     char** files_to_add;
     uint8_t count = 0;

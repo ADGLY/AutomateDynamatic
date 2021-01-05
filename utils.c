@@ -47,7 +47,7 @@ auto_error_t get_string(char* name, const char* msg, int length) {
 
     printf("%s\n", msg);
     char* result = fgets(name, length, stdin);
-    CHECK_COND(result == NULL, ERR_FILE, "There was an error while reading the input !");
+    CHECK_COND(result == NULL, ERR_IO, "There was an error while reading the input !");
     name[strlen(name) - 1] = '\0';
     return ERR_NONE;
 }

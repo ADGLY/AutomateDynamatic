@@ -20,10 +20,15 @@
 // histogram_elaborated_optimized.vhd
 // /home/antoine/Documents/Dynamatic/TestBench_2/hdl
 
+// testbench_2_elaborated_optimized.vhd
+
 // /home/antoine/Documents/Dynamatic/BigExamples/examples/fir/hdl
 // fir_elaborated_optimized.vhd
+
+
 int main(void) {
-    
+    printf("To use this tool, you will need to have at least analyzed the cpp source file using Dynamatic so that\n");
+    printf("comments are removed.\n");
     hdl_source_t hdl_source;
     CHECK_CALL(hdl_create(&hdl_source), "hdl_create failed !");
     CHECK_CALL(parse_hdl(&hdl_source), "parse_hdl failed !");

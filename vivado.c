@@ -18,13 +18,13 @@ auto_error_t get_array_size(project_t* project) {
     printf("The maximum is 1G and the input should be of the form 4K, 8K, ..., 1M, ..., 1G\n");
     uint16_t array_size;
     int scanned = scanf("%" SCNu16, &array_size);
-    CHECK_COND(scanned < 0 || scanned > 1 || array_size == 0 || array_size > 512 || !is_power_of_two(array_size), ERR_FILE, "Wrong array size !");
+    CHECK_COND(scanned < 0 || scanned > 1 || array_size == 0 || array_size > 512 || !is_power_of_two(array_size), ERR_IO, "Wrong array size !");
 
     char ind = (char)getchar();
-    CHECK_COND((ind != 'K' && ind != 'M' && ind != 'G') || (ind == 'G' && array_size > 1), ERR_FILE, "Wrong size indicator !");
+    CHECK_COND((ind != 'K' && ind != 'M' && ind != 'G') || (ind == 'G' && array_size > 1), ERR_IO, "Wrong size indicator !");
 
     char c = (char)getchar();
-    CHECK_COND(c != '\n', ERR_FILE, "You need to only input the size and the size indicator !");
+    CHECK_COND(c != '\n', ERR_IO, "You need to only input the size and the size indicator !");
 
     project->array_size = array_size;
     project->array_size_ind = ind;
@@ -57,7 +57,7 @@ auto_error_t launch_script(const char* name, const char* exec_path) {
 
     FILE* vivado_input;
     vivado_input = popen("vivado -mode tcl", "w");
-    CHECK_COND(vivado_input == NULL, ERR_FILE, "Failed to launch Vivado !");
+    CHECK_COND(vivado_input == NULL, ERR_IO, "Failed to launch Vivado !");
 
     fprintf(vivado_input, "source %s/%s\n", script_path, name);
     fprintf(vivado_input, "exit\n");
