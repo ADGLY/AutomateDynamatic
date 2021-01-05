@@ -61,7 +61,9 @@ int main(void) {
 
     CHECK_CALL_DO(launch_script("final_script.tcl", hdl_source.exec_path), "launch_script failed !", project_free(&project); hls_free(&hls); free_axi(&axi_ip););
 
-    CHECK_CALL_DO(project_free(&project), "project_free failed !", project_free(&project); hls_free(&hls); free_axi(&axi_ip););
+    CHECK_CALL_DO(project_free(&project), "project_free failed !", hls_free(&hls); free_axi(&axi_ip););
+    CHECK_CALL_DO(hls_free(&hls), "hls_free failed !", free_axi(&axi_ip););
+    CHECK_CALL(free_axi(&axi_ip), "free_axi failed !");
 
     clean_folder();
     return 0;
