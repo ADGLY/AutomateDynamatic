@@ -10,6 +10,16 @@ auto_error_t create_axi(axi_ip_t* axi_ip, project_t* project) {
     CHECK_PARAM(axi_ip);
     CHECK_PARAM(project);
 
+    memset(axi_ip, 0, sizeof(axi_ip_t));
+
+    //Added end_out
+    axi_ip->nb_slave_registers = project->hdl_source->nb_params + 3;
+
+    //Minimum is four slave registers
+    if(axi_ip->nb_slave_registers < 4) {
+        axi_ip->nb_slave_registers = 4;
+    }
+
     strcpy(axi_ip->path, project->path);
     CHECK_LENGTH(strlen(axi_ip->path) + strlen("/ip_repo") + 1, MAX_PATH_LENGTH);
     strcpy(axi_ip->path + strlen(axi_ip->path), "/ip_repo");
@@ -394,10 +404,7 @@ auto_error_t write_axi_file(project_t* project, axi_ip_t* axi_ip) {
     fprintf(new_axi_file, "(31 downto 2 => '0') & axi_start_ready & axi_end_valid;\n");
 
 
-    size_t last_reg = hdl_source->nb_params + 3 - 1;
-    if(last_reg + 1 < 4)  {
-        last_reg = 4;
-    }
+    size_t last_reg = axi_ip->nb_slave_registers - 1;
     char pattern[MAX_NAME_LENGTH];
     int written = snprintf(pattern, MAX_NAME_LENGTH, "reg_data_out <= slv_reg%zu", last_reg);
     CHECK_COND_DO(written >= MAX_NAME_LENGTH, ERR_NAME_TOO_LONG, "Name too long !", fclose(new_axi_file););
@@ -491,7 +498,15 @@ auto_error_t update_files(project_t* project, axi_ip_t* axi_ip) {
 }
 
 auto_error_t free_axi(axi_ip_t* axi_ip) {
-    free((void*)(axi_ip->axi_files.top_file));
-    free((void*)(axi_ip->axi_files.axi_file));
+
+    if(axi_ip->axi_files.top_file != NULL) {
+        free((void*)(axi_ip->axi_files.top_file));
+        axi_ip->axi_files.top_file = NULL;
+    }
+    if(axi_ip->axi_files.axi_file != NULL) {
+        free((void*)(axi_ip->axi_files.axi_file));
+        axi_ip->axi_files.axi_file = NULL;
+    }
+    
     return ERR_NONE;
 }

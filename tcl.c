@@ -44,13 +44,6 @@ auto_error_t generate_AXI_script(project_t* project, axi_ip_t* axi_ip) {
 
     strcpy(axi_ip->name, "axi_ip_dynamatic_test");
     strcpy(axi_ip->interface_name, "CSR");
-    //Added end_out
-    axi_ip->nb_slave_registers = project->hdl_source->nb_params + 3;
-
-    //Minimum is four slave registers
-    if(axi_ip->nb_slave_registers < 4) {
-        axi_ip->nb_slave_registers = 4;
-    }
 
     FILE* tcl_script = fopen("generate_axi_ip.tcl", "w");
     CHECK_NULL(tcl_script, ERR_IO, "Could not open file : generate_axi_ip.tcl");

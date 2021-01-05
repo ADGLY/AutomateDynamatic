@@ -124,6 +124,8 @@ void clean_folder() {
     remove("vivado.jou");
     remove("vivado.log");
     remove("vivado_hls.log");
+    remove("address_adapter.vhd");
+    remove("write_enb_adapter.vhd");
 
     DIR *d;
     d = opendir("./");

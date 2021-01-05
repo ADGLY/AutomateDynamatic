@@ -153,11 +153,13 @@ bool check_square_bracket(const char* look_for_arrays, hdl_array_t* arr, check_m
     regmatch_t match[1];
     char pattern[MAX_NAME_LENGTH];
     if(mode == READ) {
-        int written = snprintf(pattern, MAX_NAME_LENGTH, "%s[[:space:]]*(\\[)[^]]*(\\])([^=]*==[^=]*)*[^=;]*;", arr->name);
+        //%s[[:space:]]*(\\[)[^]]*(\\])([^=]*==[^=]*)*[^=;]*;
+        int written = snprintf(pattern, MAX_NAME_LENGTH, "%s[[:space:]]*((\\[)[^]]*(\\]))*([^=]*==[^=]*)*[^=;]*;", arr->name);
         CHECK_LENGTH(written, MAX_NAME_LENGTH);
     }
     else {
-        int written = snprintf(pattern, MAX_NAME_LENGTH, "%s[[:space:]]*(\\[)[^]]*(\\])([^=]*==[^=]*)*[^=;]*=[^;]*;", arr->name);
+        //%s[[:space:]]*(\\[)[^]]*(\\])([^=]*==[^=]*)*[^=;]*=[^;]*;
+        int written = snprintf(pattern, MAX_NAME_LENGTH, "%s[[:space:]]*((\\[)[^]]*(\\]))*([^=]*==[^=]*)*[^=;]*=[^;]*;", arr->name);
         CHECK_LENGTH(written, MAX_NAME_LENGTH);
     }
     int err = regcomp(&reg, pattern, REG_EXTENDED);
@@ -337,24 +339,94 @@ float_op_t* check_op_already_exists(uint8_t count, const char* op_name, float_op
     return NULL;
 }
 
-auto_error_t check_file(uint8_t* count, regex_t* reg, regmatch_t* match, float_op_t* floats, const char* float_paths, mode_t mode, uint8_t match_idx, 
-    struct dirent* dir) {
+auto_error_t resolve_op_name(char* op_name, const char* path, const char* fun_name) {
+    CHECK_PARAM(path);
+
+    char* fop_file = get_source(path, NULL);
+    CHECK_NULL(fop_file, ERR_IO, "Could not read fop file !");
+
+    regex_t reg;
+    regmatch_t match[2];
+
+    int err = regcomp(&reg, "component[[:space:]]*(\\w+)[[:space:]]*is", REG_EXTENDED);
+    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg compile error !", free(fop_file););
+
+    err = regexec(&reg, fop_file, 2, match, 0);
+    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg exec error !", free(fop_file); regfree(&reg););
+    regfree(&reg);
+
+    char comp_name[MAX_NAME_LENGTH];
+    memset(comp_name, 0, sizeof(char) * MAX_NAME_LENGTH);
+
+    size_t name_len = (size_t)(match[1].rm_eo - match[1].rm_so);
+    strncpy(comp_name, fop_file + match[1].rm_so, name_len);
+
+    char pattern[MAX_NAME_LENGTH];
+    int written = snprintf(pattern, MAX_NAME_LENGTH, "%s_[[:alnum:]]*_([[:alnum:]]*)", fun_name);
+    CHECK_COND_DO(written >= MAX_NAME_LENGTH, ERR_NAME_TOO_LONG, "Name too long !", free(fop_file););
+
+    err = regcomp(&reg, pattern, REG_EXTENDED);
+    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg compile error !", free(fop_file););
+    err = regexec(&reg, comp_name, 2, match, 0);
+    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg exec error !", free(fop_file); regfree(&reg););
+    regfree(&reg);
+
+    strncpy(op_name, comp_name + match[1].rm_so, (size_t)(match[1].rm_eo - match[1].rm_so));
+
+    free(fop_file);
+
+    return ERR_NONE;
+}
+
+auto_error_t check_file(uint8_t* count, float_op_t* floats, const char* float_paths, mode_t mode,
+    const char* fun_name, const char* file_name) {
     
     CHECK_PARAM(count);
-    CHECK_PARAM(reg);
-    CHECK_PARAM(match);
     CHECK_PARAM(floats);
     CHECK_PARAM(float_paths);
-    CHECK_PARAM(dir);
 
-    int err = regexec(reg, dir->d_name, match_idx + 1, match, 0);
-    CHECK_COND(err != 0, ERR_REGEX, "Reg exec error !");
+    char file_path[MAX_PATH_LENGTH];
+    memset(file_path, 0, sizeof(char) * MAX_PATH_LENGTH);
+
+    strncpy(file_path, float_paths, MAX_PATH_LENGTH);
+    size_t len = strlen(file_path);
+    CHECK_LENGTH(len, MAX_PATH_LENGTH - 1);
+    file_path[len] = '/';
+    file_path[len + 1] = '\0';
+    uint16_t max = (uint16_t)(MAX_PATH_LENGTH - strlen(file_path));
+    strncpy(file_path + strlen(file_path), file_name, max);
 
     char op_name[MAX_NAME_LENGTH];
     memset(op_name, 0, sizeof(char) * MAX_NAME_LENGTH);
-    size_t name_len = (size_t)(match[match_idx].rm_eo - match[match_idx].rm_so);
-    CHECK_LENGTH(name_len, MAX_NAME_LENGTH);
-    strncpy(op_name, dir->d_name + match[match_idx].rm_so, name_len);
+    //We can't use the name of the hdl file because on names greater than 20 they are renamed
+    //We need to look at the component name inside the vhdl file
+    if(mode == HDL) {
+        CHECK_CALL(resolve_op_name(op_name, file_path, fun_name), "resolve_op_name failed !");
+    }
+    else {
+        regex_t reg;
+        regmatch_t match[2];
+
+        char pattern[MAX_NAME_LENGTH];
+        memset(pattern, 0, sizeof(MAX_NAME_LENGTH) * sizeof(char));
+
+        int written = snprintf(pattern, MAX_NAME_LENGTH, "%s_[[:alnum:]]*_([[:alnum:]]*)", fun_name);
+        CHECK_LENGTH(written, MAX_NAME_LENGTH);
+
+        int err = regcomp(&reg, pattern, REG_EXTENDED);
+        CHECK_COND(err != 0, ERR_REGEX, "Regex exec failed !");
+
+        err = regexec(&reg, file_name, 2, match, 0);
+        CHECK_COND_DO(err != 0, ERR_REGEX, "Regex exec failed !", regfree(&reg));
+        regfree(&reg);
+
+        size_t name_len = (size_t)(match[1].rm_eo - match[1].rm_so);
+        CHECK_COND(name_len >= MAX_NAME_LENGTH, ERR_NAME_TOO_LONG, "Name too long !");
+
+        strncpy(op_name, file_name + match[1].rm_so, name_len);
+
+    }
+
     //Check if it exists
     char* path_to_modify;
     float_op_t* op = check_op_already_exists(*count, op_name, floats);
@@ -369,14 +441,7 @@ auto_error_t check_file(uint8_t* count, regex_t* reg, regmatch_t* match, float_o
     else {
         path_to_modify = op->script_path;
     }
-    strncpy(path_to_modify, float_paths, MAX_PATH_LENGTH);
-    size_t len = strlen(path_to_modify);
-    CHECK_LENGTH(len, MAX_PATH_LENGTH - 1);
-    path_to_modify[len] = '/';
-    //TODO: To test !
-    path_to_modify[len + 1] = '\0';
-    uint16_t max = (uint16_t)(MAX_PATH_LENGTH - strlen(path_to_modify));
-    strncpy(path_to_modify + strlen(path_to_modify), dir->d_name, max);
+    strncpy(path_to_modify, file_path, MAX_PATH_LENGTH);
     return ERR_NONE;
 }
 
@@ -389,42 +454,21 @@ auto_error_t update_float_op(const char* float_paths, vivado_hls_t* hls) {
     strncpy(hdl_name, hls->fun_name, MAX_NAME_LENGTH);
     uint16_t max = (uint16_t)(MAX_NAME_LENGTH - strlen(hdl_name));
     strncat(hdl_name, ".vhd", max);
-
-    //Reg vhd
-    regex_t reg_vhd;
-    regmatch_t match[3];
-    
-    char pattern_vhd[MAX_PATH_LENGTH];
-    int written = snprintf(pattern_vhd, MAX_PATH_LENGTH, "%s_([[:alnum:]]*)", hls->fun_name);
-    CHECK_LENGTH(written, MAX_PATH_LENGTH);
-
-    int err = regcomp(&reg_vhd, pattern_vhd, REG_EXTENDED);
-    CHECK_COND(err != 0, ERR_REGEX, "Reg compile error !");
-
-    //Reg tcl
-    regex_t reg_tcl;
-    
-    char pattern_tcl[MAX_PATH_LENGTH];
-    written = snprintf(pattern_tcl, MAX_PATH_LENGTH, "%s_([[:alnum:]]*)_([[:alnum:]]*)", hls->fun_name);
-    CHECK_LENGTH(written, MAX_PATH_LENGTH);
-
-    err = regcomp(&reg_tcl, pattern_tcl, REG_EXTENDED);
-    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg compile error !", regfree(&reg_vhd););
     
     DIR *d;
     d = opendir(float_paths);
-    CHECK_COND_DO(d == NULL, ERR_IO, "Could not open dir !", regfree(&reg_vhd); regfree(&reg_tcl););
+    CHECK_COND(d == NULL, ERR_IO, "Could not open dir !");
 
     uint8_t count = 0;
     float_op_t* floats = calloc(5, sizeof(float_op_t));
-    CHECK_COND_DO(floats == NULL, ERR_MEM, "Could not allocate space for float ops !", regfree(&reg_vhd); regfree(&reg_tcl); closedir(d););
+    CHECK_COND_DO(floats == NULL, ERR_MEM, "Could not allocate space for float ops !", closedir(d););
     uint8_t last = 5;
     
     struct dirent *dir;
     while ((dir = readdir(d)) != NULL) {
         if(count == last) {
             float_op_t* new_float_ops = realloc(floats, last * 2);
-            CHECK_COND_DO(new_float_ops == NULL, ERR_MEM, "Could not reallocate for float ops !", regfree(&reg_vhd); regfree(&reg_tcl); closedir(d); free(floats););
+            CHECK_COND_DO(new_float_ops == NULL, ERR_MEM, "Could not reallocate for float ops !", closedir(d); free(floats););
             floats = new_float_ops;
             last = last * 2;
         }
@@ -432,17 +476,15 @@ auto_error_t update_float_op(const char* float_paths, vivado_hls_t* hls) {
             char* file_ext = strrchr(dir->d_name, '.');
             CHECK_COND(file_ext == NULL, ERR_IO, "No file ext !");
             if(strncmp(file_ext + 1, "vhd", 3) == 0) {
-                CHECK_CALL_DO(check_file(&count, &reg_vhd, match, floats, float_paths, HDL, 1, dir), "check_file failed !", regfree(&reg_vhd); regfree(&reg_tcl); closedir(d); free(floats););
+                CHECK_CALL_DO(check_file(&count, floats, float_paths, HDL, hls->fun_name, dir->d_name), "check_file failed !", closedir(d); free(floats););
             }
             else if(strncmp(file_ext + 1, "tcl", 3) == 0) {
-                CHECK_CALL_DO(check_file(&count, &reg_tcl, match, floats, float_paths, TCL, 2, dir), "check_file failed !", regfree(&reg_vhd); regfree(&reg_tcl); closedir(d); free(floats););
+                CHECK_CALL_DO(check_file(&count, floats, float_paths, TCL, hls->fun_name, dir->d_name), "check_file failed !", closedir(d); free(floats););
             }
         }
     }
 
     closedir(d);
-    regfree(&reg_vhd);
-    regfree(&reg_tcl);
     hls->float_ops = floats;
     hls->nb_float_op = count;
     return ERR_NONE;
@@ -740,11 +782,23 @@ void free_floats(vivado_hls_t* hls) {
     free(hls->float_ops);
 }
 
+auto_error_t resolve_float_ops(vivado_hls_t* hls, hdl_source_t* hdl_source) {
+    CHECK_CALL(find_float_op(hls), "find_float_op failed !");
+    CHECK_CALL(open_dot_file(hls, hdl_source), "open_dot_file failed !");
+    CHECK_CALL(update_fop_tcl(hls), "update_fop_tcl failed !");
+    return ERR_NONE;
+}
+
 auto_error_t hls_free(vivado_hls_t* hls) {
     CHECK_PARAM(hls);
     CHECK_PARAM(hls->hls_source);
-
-    free(hls->hls_source);
-    free_floats(hls);
+    if(hls->hls_source != NULL) {
+        free(hls->hls_source);
+        hls->hls_source = NULL;
+    }
+    if(hls->float_ops != NULL) {
+        free_floats(hls);
+        hls->float_ops = NULL;
+    }
     return ERR_NONE;
 }

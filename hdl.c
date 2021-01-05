@@ -263,9 +263,17 @@ auto_error_t parse_hdl(hdl_source_t* hdl_source) {
 
 auto_error_t hdl_free(hdl_source_t* hdl_source) {
     CHECK_PARAM(hdl_source);
-
-    free(hdl_source->arrays);
-    free(hdl_source->params);
-    free(hdl_source->source);
+    if(hdl_source->arrays != NULL) {
+        free(hdl_source->arrays);
+        hdl_source->arrays = NULL;
+    }
+    if(hdl_source->params != NULL) {
+        free(hdl_source->params);
+        hdl_source->params = NULL;
+    }
+    if(hdl_source->source != NULL) {
+        free(hdl_source->source);
+        hdl_source->source = NULL;
+    }
     return ERR_NONE;
 }

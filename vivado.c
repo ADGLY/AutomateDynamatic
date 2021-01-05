@@ -70,8 +70,5 @@ auto_error_t project_free(project_t* project) {
     CHECK_PARAM(project);
 
     CHECK_CALL(hdl_free(project->hdl_source), "hdl_free failed !");
-    remove("address_adapter.vhd");
-    remove("write_enb_adapter.vhd");
-
     return ERR_NONE;
 }
