@@ -204,9 +204,9 @@ auto_error_t write_top_file(project_t* project, axi_ip_t* axi_ip) {
     CHECK_COND_DO(hdl_source == NULL, ERR_BAD_PARAM, "hdl_source is NULL !", fclose(new_top_file););
     
     for(size_t i = 0; i < hdl_source->nb_arrays; ++i) {
-      CHECK_CALL_DO(write_array_ports(new_top_file, &(hdl_source->arrays[i].write_ports)), "wrtie_array_ports failed !", 
+      CHECK_CALL_DO(write_array_ports(new_top_file, &(hdl_source->arrays[i].write_ports)), "write_array_ports failed !", 
         fclose(new_top_file));
-      CHECK_CALL_DO(write_array_ports(new_top_file, &(hdl_source->arrays[i].read_ports)), "wrtie_array_ports failed !",
+      CHECK_CALL_DO(write_array_ports(new_top_file, &(hdl_source->arrays[i].read_ports)), "write_array_ports failed !",
         fclose(new_top_file));  
     }
 

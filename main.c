@@ -28,6 +28,9 @@
 // /home/antoine/Documents/Dynamatic/BigExamples/examples/matrix_power/hdl
 // matrix_power_elaborated_optimized.vhd
 
+// /home/antoine/Documents/Dynamatic/Fibonacci/hdl
+// fibonacci_elaborated_optimized.vhd
+
 int main(void) {
     printf("To use this tool, you will need to have at least analyzed the cpp source file using Dynamatic so that\n");
     printf("comments are removed.\n");

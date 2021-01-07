@@ -154,12 +154,12 @@ bool check_square_bracket(const char* look_for_arrays, hdl_array_t* arr, check_m
     char pattern[MAX_NAME_LENGTH];
     if(mode == READ) {
         //%s[[:space:]]*(\\[)[^]]*(\\])([^=]*==[^=]*)*[^=;]*;
-        int written = snprintf(pattern, MAX_NAME_LENGTH, "%s[[:space:]]*((\\[)[^]]*(\\]))*([^=]*==[^=]*)*[^=;]*;", arr->name);
+        int written = snprintf(pattern, MAX_NAME_LENGTH, "%s[[:space:]]*((\\[)[^]]*(\\]))+([^=]*==[^=]*)*[^=;]*;", arr->name);
         CHECK_LENGTH(written, MAX_NAME_LENGTH);
     }
     else {
         //%s[[:space:]]*(\\[)[^]]*(\\])([^=]*==[^=]*)*[^=;]*=[^;]*;
-        int written = snprintf(pattern, MAX_NAME_LENGTH, "%s[[:space:]]*((\\[)[^]]*(\\]))*([^=]*==[^=]*)*[^=;]*=[^;]*;", arr->name);
+        int written = snprintf(pattern, MAX_NAME_LENGTH, "%s[[:space:]]*((\\[)[^]]*(\\]))+([^=]*==[^=]*)*[^=;]*=[^;]*;", arr->name);
         CHECK_LENGTH(written, MAX_NAME_LENGTH);
     }
     int err = regcomp(&reg, pattern, REG_EXTENDED);

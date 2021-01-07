@@ -9,6 +9,7 @@
 
 typedef struct {
     char name[MAX_NAME_LENGTH];
+    uint16_t width;
 } hdl_in_param_t;
 
 typedef struct {
@@ -25,6 +26,7 @@ typedef struct {
     bram_interface_t write_ports;
     bool read;
     bool write;
+    uint16_t width;
 } hdl_array_t;
 
 
