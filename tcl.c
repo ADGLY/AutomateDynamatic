@@ -17,10 +17,8 @@ auto_error_t generate_MAIN_script(project_t* project) {
     FILE* tcl_script = fopen("generate_project.tcl", "w");
     CHECK_NULL(tcl_script, ERR_IO, "Could not open file : generate_project.tcl");
 
-    //"create_project %s %s/%s -part xc7z045ffg900-2\n"
     fprintf(tcl_script, "create_project %s %s/%s -part xc7z045ffg900-2\n", 
     project->name, project->path, project->name);
-    //fprintf(tcl_script, "set_property board_part xilinx.com:zc706:part0:1.4 [current_project]\n");
     fprintf(tcl_script, "set_property target_language VHDL [current_project]\n");
     char ip_script_path[MAX_PATH_LENGTH];
     
@@ -113,66 +111,121 @@ auto_error_t generate_AXI_script(project_t* project, axi_ip_t* axi_ip) {
     return ERR_NONE;
 }
 
-auto_error_t generate_adapters(size_t array_size) {
-    FILE* write_enb_adapter = fopen("write_enb_adapter.vhd", "w");
-    CHECK_NULL(write_enb_adapter, ERR_IO, "Could not open file : write_enb_adapter.vhd");
+auto_error_t generate_adapters(FILE* tcl_script, hdl_source_t* hdl, hdl_array_t* array, const char* suffix, size_t array_size) {
 
+    char write_enb_filename[MAX_NAME_LENGTH];
+    memset(write_enb_filename, 0, sizeof(char) * MAX_NAME_LENGTH);
+    strncpy(write_enb_filename, "write_enb_adapter", MAX_NAME_LENGTH);
+
+    strncat(write_enb_filename, suffix, MAX_NAME_LENGTH);
+
+    const char* hdl_ext = ".vhd";
+    strncat(write_enb_filename, hdl_ext, MAX_NAME_LENGTH);
+
+    FILE* write_enb_adapter = fopen(write_enb_filename, "w");
+    CHECK_NULL(write_enb_adapter, ERR_IO, "Could not open file : write_enb_adapter.vhd");
+    
     fprintf(write_enb_adapter, "library IEEE;\n");
     fprintf(write_enb_adapter, "use IEEE.STD_LOGIC_1164.ALL;\n\n");
 
-    fprintf(write_enb_adapter, "entity write_enb_adapter is\n");
-    fprintf(write_enb_adapter, "\tport ( axi_write_enb : in std_logic_vector(3 downto 0);\n");
+    uint16_t nb_bytes_in_width = (uint16_t)(array->width >> 3);
+    int msb_axi = 64 - __builtin_clzll(array_size) - 2;
+
+    size_t nb_elem = array_size / (array->width >> 3);
+    int msb_bram = 64 - __builtin_clzll(nb_elem) - 2;
+
+    fprintf(write_enb_adapter, "entity write_enb_adapter%s is\n", suffix);
+    fprintf(write_enb_adapter, "\tport ( axi_write_enb : in std_logic_vector(%" PRIu16 " downto 0);\n", nb_bytes_in_width - 1);
     fprintf(write_enb_adapter, "\t   bram_write_enb : out std_logic);\n");
-    fprintf(write_enb_adapter, "end write_enb_adapter;\n\n");
-    fprintf(write_enb_adapter, "architecture Behavioral of write_enb_adapter is\n");
+    fprintf(write_enb_adapter, "end write_enb_adapter%s;\n\n", suffix);
+    fprintf(write_enb_adapter, "architecture Behavioral of write_enb_adapter%s is\n", suffix);
     fprintf(write_enb_adapter, "begin\n");
-    fprintf(write_enb_adapter, "\tbram_write_enb <= '1' when axi_write_enb=\"1111\" else '0';\n");
+
+
+    #define MAX_NB_ONES 64
+    char nb_ones[MAX_NB_ONES + 1];
+    memset(nb_ones, 0, sizeof(char) * (MAX_NB_ONES + 1));
+
+    for(uint16_t i = 0; i < nb_bytes_in_width; ++i) {
+        nb_ones[i] = '1';
+    }
+
+    fprintf(write_enb_adapter, "\tbram_write_enb <= '1' when axi_write_enb=\"%s\" else '0';\n", nb_ones);
     fprintf(write_enb_adapter, "end Behavioral;\n");
 
     fclose(write_enb_adapter);
 
-    FILE* address_adapter = fopen("address_adapter.vhd", "w");
+    char address_adapter_filename[MAX_NAME_LENGTH];
+    memset(address_adapter_filename, 0, sizeof(char) * MAX_NAME_LENGTH);
+    strncpy(address_adapter_filename, "address_adapter", MAX_NAME_LENGTH);
+
+    strncat(address_adapter_filename, suffix, MAX_NAME_LENGTH);
+
+    strncat(address_adapter_filename, hdl_ext, MAX_NAME_LENGTH);
+
+    FILE* address_adapter = fopen(address_adapter_filename, "w");
     CHECK_NULL(address_adapter, ERR_IO, "Could not open file : address_adapter.vhd");
 
     fprintf(address_adapter, "library IEEE;\n");
     fprintf(address_adapter, "use IEEE.STD_LOGIC_1164.ALL;\n\n");
 
-    int msb = 64 - __builtin_clzll(array_size);
+    int offset_msb = 64 - __builtin_clzll(nb_bytes_in_width) - 1;
 
-    fprintf(address_adapter, "entity address_adapter is\n");
-    fprintf(address_adapter, "\tport ( axi_addr : in std_logic_vector(%d downto 0);\n", msb);
-    fprintf(address_adapter, "\t   bram_addr : out std_logic_vector(%d downto 0));\n", msb - 2);
-    fprintf(address_adapter, "end address_adapter;\n\n");
-    fprintf(address_adapter, "architecture Behavioral of address_adapter is\n");
+    fprintf(address_adapter, "entity address_adapter%s is\n", suffix);
+    fprintf(address_adapter, "\tport ( axi_addr : in std_logic_vector(%d downto 0);\n", msb_axi);
+    fprintf(address_adapter, "\t   bram_addr : out std_logic_vector(%d downto 0));\n", msb_bram);
+    fprintf(address_adapter, "end address_adapter%s;\n\n", suffix);
+    fprintf(address_adapter, "architecture Behavioral of address_adapter%s is\n", suffix);
     fprintf(address_adapter, "begin\n");
-    fprintf(address_adapter, "\tbram_addr <= axi_addr(%d downto 2);\n", msb);
+    fprintf(address_adapter, "\tbram_addr <= axi_addr(%d downto %d);\n", msb_axi, offset_msb);
     fprintf(address_adapter, "end Behavioral;\n");
 
     fclose(address_adapter);
 
+    fprintf(tcl_script, "import_files -norecurse {%s/write_enb_adapter%s.vhd %s/address_adapter%s.vhd}\n", hdl->exec_path, suffix, hdl->exec_path, suffix);
+    fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
+    fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
+
     return ERR_NONE;
 }
 
+void create_bram(FILE* tcl_script, const char* name, const char* suffix, size_t array_size, size_t array_width) {
+    fprintf(tcl_script, "startgroup\n");
+    fprintf(tcl_script, "set latest_ver [get_ipdefs -filter {NAME == blk_mem_gen}]\n");
+    fprintf(tcl_script, "create_bd_cell -type ip -vlnv $latest_ver blk_mem_gen_%s_%s\n", name, suffix);
+    fprintf(tcl_script, "endgroup\n");
 
-auto_error_t generate_memory_interface(FILE* tcl_script, axi_ip_t* axi_ip, const char* name, const char* suffix, bram_interface_t* interface, size_t array_size) {
+
+    fprintf(tcl_script, "set_property -dict [list CONFIG.Memory_Type {True_Dual_Port_RAM} ");
+    fprintf(tcl_script, "CONFIG.Enable_32bit_Address {false} CONFIG.Use_Byte_Write_Enable {false} ");
+    fprintf(tcl_script, "CONFIG.Byte_Size {9} CONFIG.Assume_Synchronous_Clk {true} CONFIG.Write_Width_A {%zu} ", array_width);
+    fprintf(tcl_script, "CONFIG.Write_Depth_A {%zu} CONFIG.Read_Width_A {%zu} ", array_size/(array_width >> 3), array_width);
+    fprintf(tcl_script, "CONFIG.Write_Width_B {%zu} CONFIG.Read_Width_B {%zu} ", array_width, array_width);
+    fprintf(tcl_script, "CONFIG.Enable_B {Use_ENB_Pin} CONFIG.Register_PortA_Output_of_Memory_Primitives {false} ");
+    fprintf(tcl_script, "CONFIG.Register_PortB_Output_of_Memory_Primitives {false} CONFIG.Use_RSTA_Pin {false} ");
+    fprintf(tcl_script, "CONFIG.Port_B_Clock {100} CONFIG.Port_B_Write_Rate {50} CONFIG.Port_B_Enable_Rate {100} ");
+    fprintf(tcl_script, "CONFIG.use_bram_block {Stand_Alone} CONFIG.EN_SAFETY_CKT {false}] [get_bd_cells blk_mem_gen_%s_%s]\n", name, suffix);
+}
+
+void create_axi_bram_controller(FILE* tcl_script, const char* name, const char* suffix, size_t array_width) {
+    fprintf(tcl_script, "startgroup\n");
+    fprintf(tcl_script, "set latest_ver [get_ipdefs -filter {NAME == axi_bram_ctrl}]\n");
+    fprintf(tcl_script, "create_bd_cell -type ip -vlnv $latest_ver axi_bram_ctrl_%s_%s\n", name, suffix);
+    fprintf(tcl_script, "endgroup\n");
+
+    fprintf(tcl_script, "set_property -dict [list CONFIG.SINGLE_PORT_BRAM {1} CONFIG.ECC_TYPE {0}  CONFIG.DATA_WIDTH {%zu} CONFIG.PROTOCOL {AXI4}] ", array_width);
+    fprintf(tcl_script, "[get_bd_cells axi_bram_ctrl_%s_%s]\n", name, suffix);
+}
+
+
+auto_error_t generate_memory_interface(FILE* tcl_script, axi_ip_t* axi_ip, const char* name, const char* suffix, bram_interface_t* interface, size_t array_size, const char* adapter_suffix, size_t array_width) {
     CHECK_PARAM(tcl_script);
     CHECK_PARAM(axi_ip);
     CHECK_PARAM(name);
     CHECK_PARAM(suffix);
     CHECK_PARAM(interface);
 
-    fprintf(tcl_script, "startgroup\n");
-    fprintf(tcl_script, "set latest_ver [get_ipdefs -filter {NAME == blk_mem_gen}]\n");
-    fprintf(tcl_script, "create_bd_cell -type ip -vlnv $latest_ver blk_mem_gen_%s_%s\n", name, suffix);
-    fprintf(tcl_script, "endgroup\n");
-
-    fprintf(tcl_script, "set_property -dict [list CONFIG.Memory_Type {True_Dual_Port_RAM} ");
-    fprintf(tcl_script, "CONFIG.Enable_32bit_Address {false} CONFIG.Use_Byte_Write_Enable {false} ");
-    fprintf(tcl_script, "CONFIG.Byte_Size {9} CONFIG.Assume_Synchronous_Clk {true} CONFIG.Write_Depth_A {%zu} ", array_size);
-    fprintf(tcl_script, "CONFIG.Enable_B {Use_ENB_Pin} CONFIG.Register_PortA_Output_of_Memory_Primitives {false} ");
-    fprintf(tcl_script, "CONFIG.Register_PortB_Output_of_Memory_Primitives {false} CONFIG.Use_RSTA_Pin {false} ");
-    fprintf(tcl_script, "CONFIG.Port_B_Clock {100} CONFIG.Port_B_Write_Rate {50} CONFIG.Port_B_Enable_Rate {100} ");
-    fprintf(tcl_script, "CONFIG.use_bram_block {Stand_Alone} CONFIG.EN_SAFETY_CKT {false}] [get_bd_cells blk_mem_gen_%s_%s]\n", name, suffix);
+    create_bram(tcl_script, name, suffix, array_size, array_width);
     
     
     fprintf(tcl_script, "connect_bd_net [get_bd_pins %s_0/dynamatic_%s] [get_bd_pins blk_mem_gen_%s_%s/addrb]\n", axi_ip->name, interface->address, name, suffix);
@@ -181,29 +234,26 @@ auto_error_t generate_memory_interface(FILE* tcl_script, axi_ip_t* axi_ip, const
     fprintf(tcl_script, "connect_bd_net [get_bd_pins %s_0/dynamatic_%s] [get_bd_pins blk_mem_gen_%s_%s/doutb]\n", axi_ip->name, interface->din, name, suffix);
     fprintf(tcl_script, "connect_bd_net [get_bd_pins %s_0/dynamatic_%s] [get_bd_pins blk_mem_gen_%s_%s/dinb]\n", axi_ip->name, interface->dout, name, suffix);
 
-    fprintf(tcl_script, "startgroup\n");
-    fprintf(tcl_script, "set latest_ver [get_ipdefs -filter {NAME == axi_bram_ctrl}]\n");
-    fprintf(tcl_script, "create_bd_cell -type ip -vlnv $latest_ver axi_bram_ctrl_%s_%s\n", name, suffix);
-    fprintf(tcl_script, "endgroup\n");
-
-    fprintf(tcl_script, "set_property -dict [list CONFIG.PROTOCOL {AXI4LITE} CONFIG.SINGLE_PORT_BRAM {1} CONFIG.ECC_TYPE {0}] [get_bd_cells axi_bram_ctrl_%s_%s]\n", name, suffix);
-    fprintf(tcl_script, "create_bd_cell -type module -reference write_enb_adapter write_enb_adapter_%s_%s\n", name, suffix);
-    fprintf(tcl_script, "create_bd_cell -type module -reference address_adapter address_adapter_%s_%s\n", name, suffix);
-    fprintf(tcl_script, "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_addr_a] [get_bd_pins address_adapter_%s_%s/axi_addr]\n", name, suffix, name, suffix);
-    fprintf(tcl_script, "connect_bd_net [get_bd_pins address_adapter_%s_%s/bram_addr] [get_bd_pins blk_mem_gen_%s_%s/addra]\n", name, suffix, name, suffix);
+    create_axi_bram_controller(tcl_script, name, suffix, array_width);
+    
+    fprintf(tcl_script, "create_bd_cell -type module -reference write_enb_adapter%s write_enb_adapter%s\n", adapter_suffix, adapter_suffix);
+    fprintf(tcl_script, "create_bd_cell -type module -reference address_adapter%s address_adapter%s\n", adapter_suffix, adapter_suffix);
+    fprintf(tcl_script, "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_addr_a] [get_bd_pins address_adapter%s/axi_addr]\n", name, suffix, adapter_suffix);
+    fprintf(tcl_script, "connect_bd_net [get_bd_pins address_adapter%s/bram_addr] [get_bd_pins blk_mem_gen_%s_%s/addra]\n", adapter_suffix, name, suffix);
     fprintf(tcl_script, "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_wrdata_a] [get_bd_pins blk_mem_gen_%s_%s/dina]\n", name, suffix, name, suffix);
     fprintf(tcl_script, "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_rddata_a] [get_bd_pins blk_mem_gen_%s_%s/douta]\n", name, suffix, name, suffix);
     fprintf(tcl_script, "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_en_a] [get_bd_pins blk_mem_gen_%s_%s/ena]\n", name, suffix, name, suffix);
-    fprintf(tcl_script, "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_we_a] [get_bd_pins write_enb_adapter_%s_%s/axi_write_enb]\n", name, suffix, name, suffix);
-    fprintf(tcl_script, "connect_bd_net [get_bd_pins write_enb_adapter_%s_%s/bram_write_enb] [get_bd_pins blk_mem_gen_%s_%s/wea]\n", name, suffix, name, suffix);
+    fprintf(tcl_script, "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_we_a] [get_bd_pins write_enb_adapter%s/axi_write_enb]\n", name, suffix, adapter_suffix);
+    fprintf(tcl_script, "connect_bd_net [get_bd_pins write_enb_adapter%s/bram_write_enb] [get_bd_pins blk_mem_gen_%s_%s/wea]\n", adapter_suffix, name, suffix);
     fprintf(tcl_script, "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_clk_a] [get_bd_pins blk_mem_gen_%s_%s/clka]\n", name, suffix, name, suffix);
 
     return ERR_NONE;
 }
 
-auto_error_t create_mem_interface(hdl_array_t* arr, size_t array_size, char* filename) {
+auto_error_t create_mem_interface(size_t array_size, const char* filename_suffix, size_t array_width) {
     
-    int written = snprintf(filename, MAX_NAME_LENGTH, "mem_interface_%s.vhd", arr->name);
+    char filename[MAX_NAME_LENGTH];
+    int written = snprintf(filename, MAX_NAME_LENGTH, "mem_interface%s.vhd", filename_suffix);
     CHECK_LENGTH(written, MAX_NAME_LENGTH);
 
     FILE* hdl_mem_interface = fopen(filename, "w");
@@ -213,44 +263,50 @@ auto_error_t create_mem_interface(hdl_array_t* arr, size_t array_size, char* fil
 
     fprintf(hdl_mem_interface, "library IEEE;\n");
     fprintf(hdl_mem_interface, "use IEEE.STD_LOGIC_1164.ALL;\n");
-    fprintf(hdl_mem_interface, "entity %s is\n", filename);
+    fprintf(hdl_mem_interface, "entity mem_interface%s is\n", filename_suffix);
 
-    int msb = 64 - __builtin_clzll(array_size);
-    fprintf(hdl_mem_interface, "port (\taxi_bram_addr : in std_logic_vector(%d downto 0);\n", msb);
-    fprintf(hdl_mem_interface, "\t\taxi_bram_wrdata : in std_logic_vector(31 downto 0);\n");
-    fprintf(hdl_mem_interface, "\t\taxi_bram_rddata : out std_logic_vector(31 downto 0);\n");
+    
+    uint16_t nb_bytes_in_width = (uint16_t)(array_width >> 3);
+    int msb_axi = 64 - __builtin_clzll(array_size) - 2;
+
+    size_t nb_elem = array_size / (array_width >> 3);
+    int msb_bram = 64 - __builtin_clzll(nb_elem) - 2;
+
+    fprintf(hdl_mem_interface, "port (\taxi_bram_addr : in std_logic_vector(%d downto 0);\n", msb_axi);
+    fprintf(hdl_mem_interface, "\t\taxi_bram_wrdata : in std_logic_vector(%zu downto 0);\n", array_width - 1);
+    fprintf(hdl_mem_interface, "\t\taxi_bram_rddata : out std_logic_vector(%zu downto 0);\n", array_width - 1);
     fprintf(hdl_mem_interface, "\t\taxi_bram_en : in std_logic;\n");
-    fprintf(hdl_mem_interface, "\t\taxi_bram_wen : in std_logic_vector(3 downto 0);\n");
+    fprintf(hdl_mem_interface, "\t\taxi_bram_wen : in std_logic_vector(%d downto 0);\n", nb_bytes_in_width - 1);
     fprintf(hdl_mem_interface, "\n");
 
     fprintf(hdl_mem_interface, "\t\tdyn_bram_addr : in std_logic_vector(31 downto 0);\n");
-    fprintf(hdl_mem_interface, "\t\tdyn_bram_wrdata : in std_logic_vector(31 downto 0);\n");
-    fprintf(hdl_mem_interface, "\t\tdyn_bram_rddata : out std_logic_vector(31 downto 0);\n");
+    fprintf(hdl_mem_interface, "\t\tdyn_bram_wrdata : in std_logic_vector(%zu downto 0);\n", array_width - 1);
+    fprintf(hdl_mem_interface, "\t\tdyn_bram_rddata : out std_logic_vector(%zu downto 0);\n", array_width - 1);
     fprintf(hdl_mem_interface, "\t\tdyn_bram_en : in std_logic;\n");
 
     fprintf(hdl_mem_interface, "\t\tmem_bram_addr : out std_logic_vector(31 downto 0);\n");
-    fprintf(hdl_mem_interface, "\t\tmem_bram_wrdata : out std_logic_vector(31 downto 0);\n");
-    fprintf(hdl_mem_interface, "\t\tmem_bram_rddata : in std_logic_vector(31 downto 0);\n");
+    fprintf(hdl_mem_interface, "\t\tmem_bram_wrdata : out std_logic_vector(%zu downto 0);\n", array_width - 1);
+    fprintf(hdl_mem_interface, "\t\tmem_bram_rddata : in std_logic_vector(%zu downto 0);\n", array_width - 1);
     fprintf(hdl_mem_interface, "\t\tmem_bram_en : out std_logic;\n");
     fprintf(hdl_mem_interface, "\t\tmem_bram_wen : out std_logic);\n");
-    fprintf(hdl_mem_interface, "\t\tend %s;\n", filename);
+    fprintf(hdl_mem_interface, "\t\tend mem_interface%s;\n", filename_suffix);
     fprintf(hdl_mem_interface, "\n");
 
-    fprintf(hdl_mem_interface, "architecture Behavioral of %s is\n", filename);
+    fprintf(hdl_mem_interface, "architecture Behavioral of mem_interface%s is\n", filename_suffix);
     fprintf(hdl_mem_interface, "\n");
-    fprintf(hdl_mem_interface, "\tcomponent address_adapter is\n");
-    fprintf(hdl_mem_interface, "\t\tport ( axi_addr : in std_logic_vector(%d downto 0);\n", msb);
-    fprintf(hdl_mem_interface, "\t\tbram_addr : out std_logic_vector(%d downto 0));\n", msb - 2);
-    fprintf(hdl_mem_interface, "\t\tend component address_adapter;\n");
+    fprintf(hdl_mem_interface, "\tcomponent address_adapter%s is\n", filename_suffix);
+    fprintf(hdl_mem_interface, "\t\tport ( axi_addr : in std_logic_vector(%d downto 0);\n", msb_axi);
+    fprintf(hdl_mem_interface, "\t\tbram_addr : out std_logic_vector(%d downto 0));\n", msb_bram);
+    fprintf(hdl_mem_interface, "\t\tend component address_adapter%s;\n", filename_suffix);
     fprintf(hdl_mem_interface, "\n");
 
-    fprintf(hdl_mem_interface, "\tcomponent write_enb_adapter is\n");
-    fprintf(hdl_mem_interface, "\t\tport ( axi_write_enb : in std_logic_vector(3 downto 0);\n");
+    fprintf(hdl_mem_interface, "\tcomponent write_enb_adapter%s is\n", filename_suffix);
+    fprintf(hdl_mem_interface, "\t\tport ( axi_write_enb : in std_logic_vector(%d downto 0);\n", nb_bytes_in_width - 1);
     fprintf(hdl_mem_interface, "\t\tbram_write_enb : out std_logic);\n");
-    fprintf(hdl_mem_interface, "\tend component write_enb_adapter;\n");
+    fprintf(hdl_mem_interface, "\tend component write_enb_adapter%s;\n", filename_suffix);
     fprintf(hdl_mem_interface, "\n");
 
-    fprintf(hdl_mem_interface, "\tsignal axi_adapted_addr : std_logic_vector(%d downto 0);\n", msb - 2);
+    fprintf(hdl_mem_interface, "\tsignal axi_adapted_addr : std_logic_vector(%d downto 0);\n", msb_bram);
     fprintf(hdl_mem_interface, "\tsignal axi_adapted_wen : std_logic;\n");
     fprintf(hdl_mem_interface, "\tsignal axi_adapted_addr_to_32 : std_logic_vector(31 downto 0);\n");
 
@@ -258,17 +314,17 @@ auto_error_t create_mem_interface(hdl_array_t* arr, size_t array_size, char* fil
 
     fprintf(hdl_mem_interface, "begin\n");
     fprintf(hdl_mem_interface, "\n");
-    fprintf(hdl_mem_interface, "\taxi_adapted_addr_to_32(%d downto 0) <= axi_adapted_addr;\n", msb - 2);
+    fprintf(hdl_mem_interface, "\taxi_adapted_addr_to_32(%d downto 0) <= axi_adapted_addr;\n", msb_bram);
     fprintf(hdl_mem_interface, "\n");
 
-    fprintf(hdl_mem_interface, "\taddress_adapter_inst_i : address_adapter\n");
+    fprintf(hdl_mem_interface, "\taddress_adapter_inst_i : address_adapter%s\n", filename_suffix);
     fprintf(hdl_mem_interface, "\t\tport map (\n");
     fprintf(hdl_mem_interface, "\t\t\taxi_addr => axi_bram_addr,\n");
     fprintf(hdl_mem_interface, "\t\t\tbram_addr => axi_adapted_addr\n");
     fprintf(hdl_mem_interface, "\t\t);\n");
     fprintf(hdl_mem_interface, "\n");
 
-    fprintf(hdl_mem_interface, "\twrite_enb_adapter_inst_i : write_enb_adapter\n");
+    fprintf(hdl_mem_interface, "\twrite_enb_adapter_inst_i : write_enb_adapter%s\n",filename_suffix);
     fprintf(hdl_mem_interface, "\t\tport map (\n");
     fprintf(hdl_mem_interface, "\t\t\taxi_write_enb => axi_bram_wen,\n");
     fprintf(hdl_mem_interface, "\t\t\tbram_write_enb => axi_adapted_wen\n");
@@ -305,6 +361,9 @@ auto_error_t generate_memory(FILE* tcl_script, hdl_array_t* arr, axi_ip_t* axi_i
     CHECK_PARAM(tcl_script);
     CHECK_PARAM(arr);
     CHECK_PARAM(axi_ip);
+
+    char filename_suffix[MAX_NAME_LENGTH];
+
     if(arr->read && arr->write) {
 
         char* name = arr->name;
@@ -313,25 +372,8 @@ auto_error_t generate_memory(FILE* tcl_script, hdl_array_t* arr, axi_ip_t* axi_i
 
         //Create mem and axi controller 
         
-        fprintf(tcl_script, "startgroup\n");
-        fprintf(tcl_script, "set latest_ver [get_ipdefs -filter {NAME == blk_mem_gen}]\n");
-        fprintf(tcl_script, "create_bd_cell -type ip -vlnv $latest_ver blk_mem_gen_%s_%s\n", name, suffix);
-        fprintf(tcl_script, "endgroup\n");
-
-        fprintf(tcl_script, "set_property -dict [list CONFIG.Memory_Type {True_Dual_Port_RAM} ");
-        fprintf(tcl_script, "CONFIG.Enable_32bit_Address {false} CONFIG.Use_Byte_Write_Enable {false} ");
-        fprintf(tcl_script, "CONFIG.Byte_Size {9} CONFIG.Assume_Synchronous_Clk {true} CONFIG.Write_Depth_A {%zu} ", array_size);
-        fprintf(tcl_script, "CONFIG.Enable_B {Use_ENB_Pin} CONFIG.Register_PortA_Output_of_Memory_Primitives {false} ");
-        fprintf(tcl_script, "CONFIG.Register_PortB_Output_of_Memory_Primitives {false} CONFIG.Use_RSTA_Pin {false} ");
-        fprintf(tcl_script, "CONFIG.Port_B_Clock {100} CONFIG.Port_B_Write_Rate {50} CONFIG.Port_B_Enable_Rate {100} ");
-        fprintf(tcl_script, "CONFIG.use_bram_block {Stand_Alone} CONFIG.EN_SAFETY_CKT {false}] [get_bd_cells blk_mem_gen_%s_%s]\n", name, suffix);
-
-        fprintf(tcl_script, "startgroup\n");
-        fprintf(tcl_script, "set latest_ver [get_ipdefs -filter {NAME == axi_bram_ctrl}]\n");
-        fprintf(tcl_script, "create_bd_cell -type ip -vlnv $latest_ver axi_bram_ctrl_%s_%s\n", name, suffix);
-        fprintf(tcl_script, "endgroup\n");
-        fprintf(tcl_script, "set_property -dict [list CONFIG.PROTOCOL {AXI4LITE} CONFIG.SINGLE_PORT_BRAM {1} CONFIG.ECC_TYPE {0}] [get_bd_cells axi_bram_ctrl_%s_%s]\n", name, suffix);
-
+        create_bram(tcl_script, name, suffix, array_size, arr->width);
+        create_axi_bram_controller(tcl_script, name, suffix, arr->width);
 
         //Write
 
@@ -343,38 +385,54 @@ auto_error_t generate_memory(FILE* tcl_script, hdl_array_t* arr, axi_ip_t* axi_i
         fprintf(tcl_script, "connect_bd_net [get_bd_pins %s_0/dynamatic_%s] [get_bd_pins blk_mem_gen_%s_%s/doutb]\n", axi_ip->name, interface->din, name, suffix);
         fprintf(tcl_script, "connect_bd_net [get_bd_pins %s_0/dynamatic_%s] [get_bd_pins blk_mem_gen_%s_%s/dinb]\n", axi_ip->name, interface->dout, name, suffix);
 
+
+        int written = snprintf(filename_suffix, MAX_NAME_LENGTH, "_%s_%s", arr->name, "read_write");
+        CHECK_LENGTH(written, MAX_NAME_LENGTH);
+
+        CHECK_CALL_DO(generate_adapters(tcl_script, hdl, arr, filename_suffix, array_size), "generate_adapters failed !", fclose(tcl_script););
+
         //Read
-        char filename[MAX_NAME_LENGTH];
-        CHECK_CALL_DO(create_mem_interface(arr, array_size, filename), "create_mem_interface failed !", fclose(tcl_script););
+        CHECK_CALL_DO(create_mem_interface(array_size, filename_suffix, arr->width), "create_mem_interface failed !", fclose(tcl_script););
 
         interface = &(arr->read_ports);
 
-        fprintf(tcl_script, "import_files -norecurse {%s/%s.vhd}\n", hdl->exec_path, filename);
-        fprintf(tcl_script, "create_bd_cell -type module -reference %s %s_0\n", filename, filename);
+        fprintf(tcl_script, "import_files -norecurse {%s/mem_interface%s.vhd}\n", hdl->exec_path, filename_suffix);
+        fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
+        fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
 
-        fprintf(tcl_script, "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_addr_a] [get_bd_pins %s_0/axi_bram_addr]\n", arr->name, suffix, filename);
+        fprintf(tcl_script, "create_bd_cell -type module -reference mem_interface%s mem_interface%s_0\n", filename_suffix, filename_suffix);
+
+        fprintf(tcl_script, "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_addr_a] [get_bd_pins mem_interface%s_0/axi_bram_addr]\n", arr->name, suffix, filename_suffix);
         fprintf(tcl_script, "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_clk_a] [get_bd_pins blk_mem_gen_%s_%s/clka]\n", arr->name, suffix, name, suffix);
-        fprintf(tcl_script, "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_wrdata_a] [get_bd_pins %s_0/axi_bram_wrdata]\n", arr->name, suffix, filename);
-        fprintf(tcl_script, "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_rddata_a] [get_bd_pins %s_0/axi_bram_rddata]\n", arr->name, suffix, filename);
-        fprintf(tcl_script, "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_en_a] [get_bd_pins %s_0/axi_bram_en]\n", arr->name, suffix, filename);
-        fprintf(tcl_script, "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_we_a] [get_bd_pins %s_0/axi_bram_wen]\n", arr->name, suffix, filename);
+        fprintf(tcl_script, "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_wrdata_a] [get_bd_pins mem_interface%s_0/axi_bram_wrdata]\n", arr->name, suffix, filename_suffix);
+        fprintf(tcl_script, "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_rddata_a] [get_bd_pins mem_interface%s_0/axi_bram_rddata]\n", arr->name, suffix, filename_suffix);
+        fprintf(tcl_script, "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_en_a] [get_bd_pins mem_interface%s_0/axi_bram_en]\n", arr->name, suffix, filename_suffix);
+        fprintf(tcl_script, "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_we_a] [get_bd_pins mem_interface%s_0/axi_bram_wen]\n", arr->name, suffix, filename_suffix);
 
-        fprintf(tcl_script, "connect_bd_net [get_bd_pins %s_0/dynamatic_%s] [get_bd_pins %s_0/dyn_bram_addr]\n", axi_ip->name, interface->address, filename);
-        fprintf(tcl_script, "connect_bd_net [get_bd_pins %s_0/dynamatic_%s] [get_bd_pins %s_0/dyn_bram_en]\n", axi_ip->name, interface->ce, filename);
-        fprintf(tcl_script, "connect_bd_net [get_bd_pins %s_0/dynamatic_%s] [get_bd_pins %s_0/dyn_bram_wrdata]\n", axi_ip->name, interface->dout, filename);
-        fprintf(tcl_script, "connect_bd_net [get_bd_pins %s_0/dynamatic_%s] [get_bd_pins %s_0/dyn_bram_rddata]\n", axi_ip->name, interface->din, filename);
-        fprintf(tcl_script, "connect_bd_net [get_bd_pins %s_0/mem_bram_addr] [get_bd_pins blk_mem_gen_%s_%s/addra]\n", filename, arr->name, suffix);
-        fprintf(tcl_script, "connect_bd_net [get_bd_pins %s_0/mem_bram_wrdata] [get_bd_pins blk_mem_gen_%s_%s/dina]\n", filename, arr->name, suffix);
-        fprintf(tcl_script, "connect_bd_net [get_bd_pins %s_0/mem_bram_rddata] [get_bd_pins blk_mem_gen_%s_%s/douta]\n", filename, arr->name, suffix);
-        fprintf(tcl_script, "connect_bd_net [get_bd_pins %s_0/mem_bram_en] [get_bd_pins blk_mem_gen_%s_%s/ena]\n", filename, arr->name, suffix);
-        fprintf(tcl_script, "connect_bd_net [get_bd_pins %s_0/mem_bram_wen] [get_bd_pins blk_mem_gen_%s_%s/wea]\n", filename, arr->name, suffix);
+        fprintf(tcl_script, "connect_bd_net [get_bd_pins %s_0/dynamatic_%s] [get_bd_pins mem_interface%s_0/dyn_bram_addr]\n", axi_ip->name, interface->address, filename_suffix);
+        fprintf(tcl_script, "connect_bd_net [get_bd_pins %s_0/dynamatic_%s] [get_bd_pins mem_interface%s_0/dyn_bram_en]\n", axi_ip->name, interface->ce, filename_suffix);
+        fprintf(tcl_script, "connect_bd_net [get_bd_pins %s_0/dynamatic_%s] [get_bd_pins mem_interface%s_0/dyn_bram_wrdata]\n", axi_ip->name, interface->dout, filename_suffix);
+        fprintf(tcl_script, "connect_bd_net [get_bd_pins %s_0/dynamatic_%s] [get_bd_pins mem_interface%s_0/dyn_bram_rddata]\n", axi_ip->name, interface->din, filename_suffix);
+        fprintf(tcl_script, "connect_bd_net [get_bd_pins mem_interface%s_0/mem_bram_addr] [get_bd_pins blk_mem_gen_%s_%s/addra]\n", filename_suffix, arr->name, suffix);
+        fprintf(tcl_script, "connect_bd_net [get_bd_pins mem_interface%s_0/mem_bram_wrdata] [get_bd_pins blk_mem_gen_%s_%s/dina]\n", filename_suffix, arr->name, suffix);
+        fprintf(tcl_script, "connect_bd_net [get_bd_pins mem_interface%s_0/mem_bram_rddata] [get_bd_pins blk_mem_gen_%s_%s/douta]\n", filename_suffix, arr->name, suffix);
+        fprintf(tcl_script, "connect_bd_net [get_bd_pins mem_interface%s_0/mem_bram_en] [get_bd_pins blk_mem_gen_%s_%s/ena]\n", filename_suffix, arr->name, suffix);
+        fprintf(tcl_script, "connect_bd_net [get_bd_pins mem_interface%s_0/mem_bram_wen] [get_bd_pins blk_mem_gen_%s_%s/wea]\n", filename_suffix, arr->name, suffix);
 
     }
     else if(arr->write) {
-        CHECK_CALL(generate_memory_interface(tcl_script, axi_ip, arr->name, "write", &(arr->write_ports), array_size), "generate_memory_interface failed !");
+        int written = snprintf(filename_suffix, MAX_NAME_LENGTH, "_%s_%s", arr->name, "write");
+        CHECK_LENGTH(written, MAX_NAME_LENGTH);
+
+        CHECK_CALL_DO(generate_adapters(tcl_script, hdl, arr, filename_suffix, array_size), "generate_adapters failed !", fclose(tcl_script););
+        CHECK_CALL(generate_memory_interface(tcl_script, axi_ip, arr->name, "read", &(arr->write_ports), array_size, filename_suffix, arr->width), "generate_memory_interface failed !");
     }
     else if(arr->read) {
-        CHECK_CALL(generate_memory_interface(tcl_script, axi_ip, arr->name, "read", &(arr->read_ports), array_size), "generate_memory_interface failed !");
+        int written = snprintf(filename_suffix, MAX_NAME_LENGTH, "_%s_%s", arr->name, "read");
+        CHECK_LENGTH(written, MAX_NAME_LENGTH);
+
+        CHECK_CALL_DO(generate_adapters(tcl_script, hdl, arr, filename_suffix, array_size), "generate_adapters failed !", fclose(tcl_script););
+        CHECK_CALL(generate_memory_interface(tcl_script, axi_ip, arr->name, "read", &(arr->read_ports), array_size, filename_suffix, arr->width), "generate_memory_interface failed !");
     }
     return ERR_NONE;
 }
@@ -386,25 +444,20 @@ auto_error_t memory_connection_automation(FILE* tcl_script, hdl_source_t* hdl_so
 
     for(size_t i = 0; i < hdl_source->nb_arrays; ++i) {
         hdl_array_t* arr = &(hdl_source->arrays[i]);
-
+        const char* suffix;
         if(arr->write && arr->read) {
-            fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config");
-            fprintf(tcl_script, " { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7_0/M_AXI_GP0}");
-            fprintf(tcl_script, " Slave {/axi_bram_ctrl_%s_read_write/S_AXI} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}", arr->name);
-            fprintf(tcl_script, "  [get_bd_intf_pins axi_bram_ctrl_%s_read_write/S_AXI]\n", arr->name);
+            suffix = "read_write";
         }
         else if(arr->write) {
-            fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config");
-            fprintf(tcl_script, " { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7_0/M_AXI_GP0}");
-            fprintf(tcl_script, " Slave {/axi_bram_ctrl_%s_write/S_AXI} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}", arr->name);
-            fprintf(tcl_script, "  [get_bd_intf_pins axi_bram_ctrl_%s_write/S_AXI]\n", arr->name);
+            suffix = "write";
         }
         else if(arr->read) {
-            fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config");
-            fprintf(tcl_script, " { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7_0/M_AXI_GP0}");
-            fprintf(tcl_script, " Slave {/axi_bram_ctrl_%s_read/S_AXI} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}", arr->name);
-            fprintf(tcl_script, "  [get_bd_intf_pins axi_bram_ctrl_%s_read/S_AXI]\n", arr->name);
+            suffix = "read";
         }
+        fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config");
+        fprintf(tcl_script, " { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7_0/M_AXI_GP0}");
+        fprintf(tcl_script, " Slave {/axi_bram_ctrl_%s_%s/S_AXI} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}", arr->name, suffix);
+        fprintf(tcl_script, "  [get_bd_intf_pins axi_bram_ctrl_%s_%s/S_AXI]\n", arr->name, suffix);
     }
 
     return ERR_NONE;
@@ -458,6 +511,8 @@ auto_error_t generate_final_script(project_t* project, vivado_hls_t* hls, axi_ip
     fprintf(tcl_script, "open_project %s/%s/%s.xpr\n", project->path, project->name, project->name);
     fprintf(tcl_script, "update_ip_catalog -rebuild\n");
 
+    fprintf(tcl_script, "set_property board_part xilinx.com:zc706:part0:1.4 [current_project]\n");
+
     fprintf(tcl_script, "create_bd_design \"design_1\"\n");
     fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
 
@@ -477,17 +532,7 @@ auto_error_t generate_final_script(project_t* project, vivado_hls_t* hls, axi_ip
     else {
         ind_to_num = 30;
     }
-    array_size = array_size << (ind_to_num - 2);
-
-    CHECK_CALL_DO(generate_adapters(array_size), "generate_adapters failed !", fclose(tcl_script););
-    
-    char adapters[MAX_PATH_LENGTH];
-    strncpy(adapters, project->hdl_source->exec_path, MAX_PATH_LENGTH);
-
-    fprintf(tcl_script, "import_files -norecurse {%s/write_enb_adapter.vhd %s/address_adapter.vhd}\n", adapters, adapters);
-    fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
-    fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
-
+    array_size = array_size << ind_to_num;
     
 
     for(size_t i = 0; i < project->hdl_source->nb_arrays; ++i) {
@@ -517,31 +562,33 @@ auto_error_t generate_final_script(project_t* project, vivado_hls_t* hls, axi_ip
 
     for(size_t i = 0; i < project->hdl_source->nb_arrays; ++i) {
         hdl_array_t* arr = &(project->hdl_source->arrays[i]);
+        const char* suffix;
         if(arr->write && arr->read) {
-            fprintf(tcl_script, "connect_bd_net [get_bd_pins blk_mem_gen_%s_read_write/clkb] [get_bd_pins processing_system7_0/FCLK_CLK0]\n", arr->name);
+            suffix = "read_write";
         }
         else if(arr->write) {
-            fprintf(tcl_script, "connect_bd_net [get_bd_pins blk_mem_gen_%s_write/clkb] [get_bd_pins processing_system7_0/FCLK_CLK0]\n", arr->name);
+            suffix = "write";
         }
         else if(arr->read) {
-            fprintf(tcl_script, "connect_bd_net [get_bd_pins blk_mem_gen_%s_read/clkb] [get_bd_pins processing_system7_0/FCLK_CLK0]\n", arr->name);
+            suffix = "read";
         }
+        fprintf(tcl_script, "connect_bd_net [get_bd_pins blk_mem_gen_%s_%s/clkb] [get_bd_pins processing_system7_0/FCLK_CLK0]\n", arr->name, suffix);
     }
 
     for(size_t i = 0; i < project->hdl_source->nb_arrays; ++i) {
         hdl_array_t* arr = &(project->hdl_source->arrays[i]);
-        if(arr->read && arr->write) {
-            fprintf(tcl_script, "set_property range " "%" PRIu16 "%c"  " [get_bd_addr_segs {processing_system7_0/Data/SEG_axi_bram_ctrl_%s_read_write_Mem0}]\n",
-            project->array_size, project->array_size_ind, arr->name);
-        }
-        else if(arr->read) {
-            fprintf(tcl_script, "set_property range " "%" PRIu16 "%c"  " [get_bd_addr_segs {processing_system7_0/Data/SEG_axi_bram_ctrl_%s_read_Mem0}]\n",
-            project->array_size, project->array_size_ind, arr->name);
+        const char* suffix;
+        if(arr->write && arr->read) {
+            suffix = "read_write";
         }
         else if(arr->write) {
-            fprintf(tcl_script, "set_property range " "%" PRIu16 "%c"  " [get_bd_addr_segs {processing_system7_0/Data/SEG_axi_bram_ctrl_%s_write_Mem0}]\n",
-            project->array_size, project->array_size_ind, arr->name);
+            suffix = "write";
         }
+        else if(arr->read) {
+            suffix = "read";
+        }
+        fprintf(tcl_script, "set_property range " "%" PRIu16 "%c"  " [get_bd_addr_segs {processing_system7_0/Data/SEG_axi_bram_ctrl_%s_%s_Mem0}]\n",
+            project->array_size, project->array_size_ind, arr->name, suffix);
     }
 
     fprintf(tcl_script, "save_bd_design\n");

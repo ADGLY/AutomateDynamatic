@@ -47,7 +47,7 @@ auto_error_t get_entity_name(hdl_source_t* hdl_source) {
     return ERR_NONE;
 }
 
-auto_error_t iterate_hdl(regex_t* reg, const char** source_off, regmatch_t* match, const char** str_match, size_t* str_match_len, int* err, size_t* array_count, int nb_match) {
+auto_error_t iterate_hdl(regex_t* reg, const char** source_off, regmatch_t* match, const char** str_match, size_t* str_match_len, int* err, int nb_match) {
     *err = regexec(reg, *source_off, (size_t)nb_match, (regmatch_t*)match, 0);
     if(*err != 0) {
         return ERR_NONE;
@@ -80,7 +80,7 @@ auto_error_t get_arrays(hdl_source_t* hdl_source) {
 
     const char* str_match;
     size_t str_match_len;
-    CHECK_CALL_DO(iterate_hdl(&reg, &source_off, match, &str_match, &str_match_len, &err, NULL, 3), "iterate_hdl_failed !", free((void*)arrays););
+    CHECK_CALL_DO(iterate_hdl(&reg, &source_off, match, &str_match, &str_match_len, &err, 3), "iterate_hdl_failed !", free((void*)arrays););
 
     size_t end_arrays = 0;
 
@@ -97,7 +97,7 @@ auto_error_t get_arrays(hdl_source_t* hdl_source) {
         
         strncpy(str_width, source_off - match[0].rm_eo + match[2].rm_so, len);
 
-        uint16_t width = (uint16_t)strtoll(str_width, NULL, 10);
+        uint16_t width = (uint16_t)strtoll(str_width, NULL, 10) + 1;
         arrays[array_count].width = width;
 
         array_count++;
@@ -111,7 +111,7 @@ auto_error_t get_arrays(hdl_source_t* hdl_source) {
         
         end_arrays = (size_t)(source_off - hdl_source->source);
 
-        CHECK_CALL_DO(iterate_hdl(&reg, &source_off, match, &str_match, &str_match_len, &err, &array_count, 3), "iterate_hdl_failed !", free((void*)arrays););
+        CHECK_CALL_DO(iterate_hdl(&reg, &source_off, match, &str_match, &str_match_len, &err, 3), "iterate_hdl_failed !", free((void*)arrays););
     }
     if(array_count == 0) {
         hdl_source->arrays = NULL;
@@ -189,7 +189,7 @@ auto_error_t get_params(hdl_source_t* hdl_source) {
 
     const char* str_match;
     size_t str_match_len;
-    CHECK_CALL_DO(iterate_hdl(&reg, &source_off, match, &str_match, &str_match_len, &err, NULL, 3), "iterate_hdl_failed !", free((void*)params););
+    CHECK_CALL_DO(iterate_hdl(&reg, &source_off, match, &str_match, &str_match_len, &err, 3), "iterate_hdl_failed !", free((void*)params););
 
 
     while((size_t)(source_off - hdl_source->source) <= end_of_port && err == 0) {
@@ -218,7 +218,7 @@ auto_error_t get_params(hdl_source_t* hdl_source) {
             alloc_size *= 2;
         }
 
-        CHECK_CALL_DO(iterate_hdl(&reg, &source_off, match, &str_match, &str_match_len, &err, NULL, 2), "iterate_hdl_failed !", free((void*)params););
+        CHECK_CALL_DO(iterate_hdl(&reg, &source_off, match, &str_match, &str_match_len, &err, 2), "iterate_hdl_failed !", free((void*)params););
     }
     if(param_count == 0) {
         hdl_source->params = NULL;

@@ -75,7 +75,7 @@ auto_error_t read_axi_files(axi_ip_t* axi_ip) {
     return ERR_NONE;
 }
 
-auto_error_t write_array_ports(FILE* file, bram_interface_t* interface) {
+auto_error_t write_array_ports(FILE* file, bram_interface_t* interface, size_t array_width) {
     CHECK_PARAM(file);
     CHECK_PARAM(interface);
 
@@ -96,16 +96,16 @@ auto_error_t write_array_ports(FILE* file, bram_interface_t* interface) {
 
     fprintf(file, "\t\t%s", prefix);
     fprintf(file, "%s", interface->dout);
-    fprintf(file, "%s\n", " : out std_logic_vector (31 downto 0);");
+    fprintf(file, " : out std_logic_vector (%zu downto 0);\n", array_width - 1);
 
     fprintf(file, "\t\t%s", prefix);
     fprintf(file, "%s", interface->din);
-    fprintf(file, "%s\n", " : in std_logic_vector (31 downto 0);");
+    fprintf(file, " : in std_logic_vector (%zu downto 0);\n", array_width - 1);
 
     return ERR_NONE;
 }
 
-auto_error_t write_array_ports_wo_prefix(FILE* file, bram_interface_t* interface, bool last) {
+auto_error_t write_array_ports_wo_prefix(FILE* file, bram_interface_t* interface, bool last, size_t array_width) {
     CHECK_PARAM(file);
     CHECK_PARAM(interface);
 
@@ -119,14 +119,14 @@ auto_error_t write_array_ports_wo_prefix(FILE* file, bram_interface_t* interface
     fprintf(file, "%s\n", " : out std_logic;");
 
     fprintf(file, "\t\t%s", interface->dout);
-    fprintf(file, "%s\n", " : out std_logic_vector (31 downto 0);");
+    fprintf(file, " : out std_logic_vector (%zu downto 0);\n", array_width - 1);
     if(last) {
         fprintf(file, "\t\t%s", interface->din);
-        fprintf(file, "%s\n", " : in std_logic_vector (31 downto 0)");
+        fprintf(file, " : in std_logic_vector (%zu downto 0)\n", array_width - 1);
     }
     else {
         fprintf(file, "\t\t%s", interface->din);
-        fprintf(file, "%s\n", " : in std_logic_vector (31 downto 0);");
+        fprintf(file, " : in std_logic_vector (%zu downto 0);\n", array_width - 1);
     }
 
     return ERR_NONE;
@@ -204,9 +204,9 @@ auto_error_t write_top_file(project_t* project, axi_ip_t* axi_ip) {
     CHECK_COND_DO(hdl_source == NULL, ERR_BAD_PARAM, "hdl_source is NULL !", fclose(new_top_file););
     
     for(size_t i = 0; i < hdl_source->nb_arrays; ++i) {
-      CHECK_CALL_DO(write_array_ports(new_top_file, &(hdl_source->arrays[i].write_ports)), "write_array_ports failed !", 
+      CHECK_CALL_DO(write_array_ports(new_top_file, &(hdl_source->arrays[i].write_ports), hdl_source->arrays[i].width), "write_array_ports failed !", 
         fclose(new_top_file));
-      CHECK_CALL_DO(write_array_ports(new_top_file, &(hdl_source->arrays[i].read_ports)), "write_array_ports failed !",
+      CHECK_CALL_DO(write_array_ports(new_top_file, &(hdl_source->arrays[i].read_ports), hdl_source->arrays[i].width), "write_array_ports failed !",
         fclose(new_top_file));  
     }
 
@@ -253,9 +253,9 @@ auto_error_t write_top_file(project_t* project, axi_ip_t* axi_ip) {
 
     for(size_t i = 0; i < hdl_source->nb_arrays; ++i) {
         last = (i == hdl_source->nb_arrays - 1  && hdl_source->nb_params == 0);
-        CHECK_CALL_DO(write_array_ports_wo_prefix(new_top_file, &(hdl_source->arrays[i].write_ports), false), "write_array_ports_wo_prefix failed !", 
+        CHECK_CALL_DO(write_array_ports_wo_prefix(new_top_file, &(hdl_source->arrays[i].write_ports), false, hdl_source->arrays[i].width), "write_array_ports_wo_prefix failed !", 
         fclose(new_top_file));
-        CHECK_CALL_DO(write_array_ports_wo_prefix(new_top_file, &(hdl_source->arrays[i].read_ports), last), "write_array_ports_wo_prefix failed !", 
+        CHECK_CALL_DO(write_array_ports_wo_prefix(new_top_file, &(hdl_source->arrays[i].read_ports), last, hdl_source->arrays[i].width), "write_array_ports_wo_prefix failed !", 
         fclose(new_top_file));
     }
 

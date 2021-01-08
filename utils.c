@@ -124,8 +124,6 @@ void clean_folder() {
     remove("vivado.jou");
     remove("vivado.log");
     remove("vivado_hls.log");
-    remove("address_adapter.vhd");
-    remove("write_enb_adapter.vhd");
 
     DIR *d;
     d = opendir("./");
@@ -136,7 +134,7 @@ void clean_folder() {
     regex_t reg;
     regmatch_t match[1];
 
-    int err = regcomp(&reg, "vivado_[[:digit:]]*\\.backup", REG_EXTENDED);
+    int err = regcomp(&reg, "(vivado_[[:digit:]]*\\.backup)|address_adapter|mem_interface|write_enb_adapter", REG_EXTENDED);
     if(err != 0) {
         closedir(d);
         return;
