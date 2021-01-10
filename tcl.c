@@ -333,8 +333,15 @@ auto_error_t create_mem_interface(size_t array_size, const char* filename_suffix
 
     fprintf(hdl_mem_interface, "\tmem_bram_addr <= axi_adapted_addr_to_32 when dyn_bram_en = '0' ");
     fprintf(hdl_mem_interface, "or (axi_adapted_wen = '1' and axi_bram_en = '1') else\n");
+    fprintf(hdl_mem_interface, "\t\t\t\t\tdyn_bram_addr;\n");
+    fprintf(hdl_mem_interface, "\n");
+
+    fprintf(hdl_mem_interface, "\tmem_bram_wrdata <= axi_bram_wrdata when dyn_bram_en = '0' ");
+    fprintf(hdl_mem_interface, "or (axi_adapted_wen = '1' and axi_bram_en = '1') else\n");
     fprintf(hdl_mem_interface, "\t\t\t\t\tdyn_bram_wrdata;\n");
     fprintf(hdl_mem_interface, "\n");
+
+
 
     fprintf(hdl_mem_interface, "\taxi_bram_rddata <= mem_bram_rddata;\n");
     fprintf(hdl_mem_interface, "\n");
