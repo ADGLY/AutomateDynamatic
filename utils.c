@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <regex.h>
+#include <ctype.h>
 #include <ftw.h>
 #include "utils.h"
 
@@ -50,6 +51,14 @@ auto_error_t get_string(char* name, const char* msg, int length) {
     CHECK_COND(result == NULL, ERR_IO, "There was an error while reading the input !");
     name[strlen(name) - 1] = '\0';
     return ERR_NONE;
+}
+
+void str_toupper(char* str) {
+    while(*str != '\0') {
+        *str = (char)toupper((int)*str);
+        str++;
+    }
+        
 }
 
 auto_error_t get_name(char* name, const char* msg) {

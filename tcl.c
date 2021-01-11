@@ -8,17 +8,25 @@
 #include <stdlib.h>
 #include <errno.h>
 #include "tcl.h"
+#include "tcl_board.h"
 
 #define MAX_DYNAMATIC_FILES 8
 
-auto_error_t generate_MAIN_script(project_t* project) {
+auto_error_t generate_MAIN_script(project_t* project, const char* part) {
     CHECK_PARAM(project);
+    CHECK_PARAM(part);
 
     FILE* tcl_script = fopen("generate_project.tcl", "w");
     CHECK_NULL(tcl_script, ERR_IO, "Could not open file : generate_project.tcl");
-
-    fprintf(tcl_script, "create_project %s %s/%s -part xc7z045ffg900-2\n", 
-    project->name, project->path, project->name);
+    //xc7z045ffg900-2
+    if(strcmp(part, "xcvu9p-flgb2104-2-i") == 0) {
+        fprintf(tcl_script, "create_project %s %s/%s -part xc7z045ffg900-2\n", 
+            project->name, project->path, project->name);
+    }
+    else {
+        fprintf(tcl_script, "create_project %s %s/%s -part %s\n", 
+            project->name, project->path, project->name, part);
+    }
     fprintf(tcl_script, "set_property target_language VHDL [current_project]\n");
     char ip_script_path[MAX_PATH_LENGTH];
     
@@ -41,7 +49,6 @@ auto_error_t generate_AXI_script(project_t* project, axi_ip_t* axi_ip) {
     CHECK_PARAM(axi_ip);
     CHECK_PARAM(project->hdl_source);
 
-    strcpy(axi_ip->name, "axi_ip_dynamatic_test");
     strcpy(axi_ip->interface_name, "CSR");
 
     FILE* tcl_script = fopen("generate_axi_ip.tcl", "w");
@@ -444,33 +451,7 @@ auto_error_t generate_memory(FILE* tcl_script, hdl_array_t* arr, axi_ip_t* axi_i
     return ERR_NONE;
 }
 
-auto_error_t memory_connection_automation(FILE* tcl_script, hdl_source_t* hdl_source) {
-    CHECK_PARAM(tcl_script);
-    CHECK_PARAM(hdl_source);
-    CHECK_PARAM(hdl_source->arrays);
-
-    for(size_t i = 0; i < hdl_source->nb_arrays; ++i) {
-        hdl_array_t* arr = &(hdl_source->arrays[i]);
-        const char* suffix;
-        if(arr->write && arr->read) {
-            suffix = "read_write";
-        }
-        else if(arr->write) {
-            suffix = "write";
-        }
-        else if(arr->read) {
-            suffix = "read";
-        }
-        fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config");
-        fprintf(tcl_script, " { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7_0/M_AXI_GP0}");
-        fprintf(tcl_script, " Slave {/axi_bram_ctrl_%s_%s/S_AXI} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}", arr->name, suffix);
-        fprintf(tcl_script, "  [get_bd_intf_pins axi_bram_ctrl_%s_%s/S_AXI]\n", arr->name, suffix);
-    }
-
-    return ERR_NONE;
-}
-
-auto_error_t generate_final_script(project_t* project, vivado_hls_t* hls, axi_ip_t* axi_ip) {
+auto_error_t generate_final_script(project_t* project, vivado_hls_t* hls, axi_ip_t* axi_ip, const char* part) {
     CHECK_PARAM(project);
     CHECK_PARAM(project->hdl_source);
     CHECK_PARAM(project->hdl_source->arrays);
@@ -513,14 +494,19 @@ auto_error_t generate_final_script(project_t* project, vivado_hls_t* hls, axi_ip
     fprintf(tcl_script, "update_ip_catalog -rebuild -repo_path %s/%s_1.0\n", axi_ip->path, axi_ip->name);
     fprintf(tcl_script, "close_project\n");
 
-    //-----------------------------------------------------------------------
-
     fprintf(tcl_script, "open_project %s/%s/%s.xpr\n", project->path, project->name, project->name);
     fprintf(tcl_script, "update_ip_catalog -rebuild\n");
 
-    fprintf(tcl_script, "set_property board_part xilinx.com:zc706:part0:1.4 [current_project]\n");
-
-    fprintf(tcl_script, "create_bd_design \"design_1\"\n");
+    if(strcmp(part, "xcvu9p-flgb2104-2-i") == 0) {
+        fprintf(tcl_script, "aws::make_ipi\n");
+        fprintf(tcl_script, "set_property ip_repo_paths [concat [get_property ip_repo_paths [current_project]] ");
+        fprintf(tcl_script, "{%s/ip_repo}] [current_project]\n", project->path);
+        //https://forums.xilinx.com/t5/Vivado-TCL-Community/append-to-existing-ip-repo-paths/td-p/742487
+        //set_property ip_repo_paths [concat [get_property ip_repo_paths [current_project]] {c:/new_repo/}] [current_project]
+    }
+    else {
+        fprintf(tcl_script, "create_bd_design \"design_1\"\n");
+    }
     fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
 
     fprintf(tcl_script, "startgroup\n");
@@ -546,57 +532,45 @@ auto_error_t generate_final_script(project_t* project, vivado_hls_t* hls, axi_ip
         CHECK_CALL_DO(generate_memory(tcl_script, &(project->hdl_source->arrays[i]), axi_ip, project->hdl_source, array_size), "generate_memory failed !", fclose(tcl_script););
     }
 
+    hdl_source_t* hdl = project->hdl_source;
 
-    //Specific to Zynq, allows bd_automation
-    fprintf(tcl_script, "startgroup\n");
-    fprintf(tcl_script, "set latest_ver [get_ipdefs -filter {NAME == processing_system7}]\n");
-    fprintf(tcl_script, "create_bd_cell -type ip -vlnv $latest_ver processing_system7_0\n");
-    fprintf(tcl_script, "endgroup\n");
-    fprintf(tcl_script, "startgroup\n");
-    fprintf(tcl_script, "set_property -dict [list CONFIG.preset {ZC706}] [get_bd_cells processing_system7_0]\n");
-    fprintf(tcl_script, "set_property -dict [list CONFIG.PCW_FPGA0_PERIPHERAL_FREQMHZ {100}] [get_bd_cells processing_system7_0]\n");
-    fprintf(tcl_script, "endgroup\n");
-    fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:processing_system7");
-    //No apply board preset ?
-    fprintf(tcl_script, " -config {make_external \"FIXED_IO, DDR\" apply_board_preset \"0\" Master \"Disable\" Slave \"Disable\" }  [get_bd_cells processing_system7_0]\n");
-    
-    fprintf(tcl_script, "startgroup\n");
-    CHECK_CALL_DO(memory_connection_automation(tcl_script, project->hdl_source), "memory_connection_automation failed !", fclose(tcl_script););
-    fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7_0/M_AXI_GP0}");
-    fprintf(tcl_script, " Slave {/%s_0/%s} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}", axi_ip->name, axi_ip->interface_name);
-    fprintf(tcl_script, "  [get_bd_intf_pins %s_0/%s]\n", axi_ip->name, axi_ip->interface_name);
-    fprintf(tcl_script, "endgroup\n");
+    fprintf(tcl_script, "set latest_ver [get_ipdefs -filter {NAME == smartconnect}]\n");
+    fprintf(tcl_script, "create_bd_cell -type ip -vlnv ");
+    fprintf(tcl_script, "$latest_ver smartconnect_0\n");
+    fprintf(tcl_script, "set_property -dict [list CONFIG.NUM_MI {%zu} CONFIG.NUM_SI {1}] ", hdl->nb_arrays + 1);
+    fprintf(tcl_script, "[get_bd_cells smartconnect_0]\n");
 
-    for(size_t i = 0; i < project->hdl_source->nb_arrays; ++i) {
-        hdl_array_t* arr = &(project->hdl_source->arrays[i]);
+
+    char master_port[MAX_NAME_LENGTH];
+    memset(master_port, 0, sizeof(MAX_NAME_LENGTH) * sizeof(char));
+    hdl_array_t* arrays = hdl->arrays;
+    for(uint16_t i = 0; i < hdl->nb_arrays; ++i) {
+        hdl_array_t arr = arrays[i];
+        snprintf(master_port, MAX_NAME_LENGTH, "M%02" PRIu16 "_AXI", i);
         const char* suffix;
-        if(arr->write && arr->read) {
+        if(arr.read && arr.write) {
             suffix = "read_write";
         }
-        else if(arr->write) {
-            suffix = "write";
-        }
-        else if(arr->read) {
+        else if(arr.read) {
             suffix = "read";
         }
-        fprintf(tcl_script, "connect_bd_net [get_bd_pins blk_mem_gen_%s_%s/clkb] [get_bd_pins processing_system7_0/FCLK_CLK0]\n", arr->name, suffix);
+        else {
+            suffix = "write";
+        }
+        fprintf(tcl_script, "connect_bd_intf_net [get_bd_intf_pins smartconnect_0/%s] ", master_port);
+        fprintf(tcl_script, "[get_bd_intf_pins axi_bram_ctrl_%s_%s/S_AXI]\n", arr.name, suffix);
     }
 
-    for(size_t i = 0; i < project->hdl_source->nb_arrays; ++i) {
-        hdl_array_t* arr = &(project->hdl_source->arrays[i]);
-        const char* suffix;
-        if(arr->write && arr->read) {
-            suffix = "read_write";
-        }
-        else if(arr->write) {
-            suffix = "write";
-        }
-        else if(arr->read) {
-            suffix = "read";
-        }
-        fprintf(tcl_script, "set_property range " "%" PRIu16 "%c"  " [get_bd_addr_segs {processing_system7_0/Data/SEG_axi_bram_ctrl_%s_%s_Mem0}]\n",
-            project->array_size, project->array_size_ind, arr->name, suffix);
+    snprintf(master_port, MAX_NAME_LENGTH, "M%02" PRIu64 "_AXI", hdl->nb_arrays);
+    fprintf(tcl_script, "connect_bd_intf_net [get_bd_intf_pins smartconnect_0/%s] ", master_port);
+    fprintf(tcl_script, "[get_bd_intf_pins %s_0/%s]\n", axi_ip->name, axi_ip->interface_name);
+
+    script_func_t script_func = select_part_script(part);
+
+    if(script_func != NULL) {
+        script_func(tcl_script, project, axi_ip);
     }
+
 
     fprintf(tcl_script, "save_bd_design\n");
 
@@ -606,7 +580,7 @@ auto_error_t generate_final_script(project_t* project, vivado_hls_t* hls, axi_ip
 }
 
 
-auto_error_t generate_hls_script(vivado_hls_t* hls) {
+auto_error_t generate_hls_script(vivado_hls_t* hls, const char* part) {
     CHECK_PARAM(hls);
 
     FILE* tcl_script = fopen("hls_script.tcl", "w");
@@ -700,7 +674,13 @@ auto_error_t generate_hls_script(vivado_hls_t* hls) {
     free_str_arr(files_to_add, last);
 
     fprintf(tcl_script, "open_solution -reset \"solution1\"\n");
-    fprintf(tcl_script, "set_part {xc7z045ffg900-2}\n");
+
+    if(strcmp(part, "xcvu9p-flgb2104-2-i") == 0) {
+        fprintf(tcl_script, "set_part {xc7z045ffg900-2}\n");
+    }
+    else {
+        fprintf(tcl_script, "set_part {%s}\n", part);
+    }
     fprintf(tcl_script, "create_clock -period 100MHz\n");
 
     fprintf(tcl_script, "csynth_design\n");

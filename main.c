@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include "hdl.h"
 #include "axi_files.h"
 #include "tcl.h"
@@ -31,9 +32,17 @@
 // /home/antoine/Documents/Dynamatic/Fibonacci/hdl
 // fibonacci_elaborated_optimized.vhd
 
+//xc7z045ffg900-2 --> ZC706
+//xc7z020clg484-1 --> ZC702
+//xcvu9p-flgb2104-2-i --> AWS
+
 int main(void) {
     printf("To use this tool, you will need to have at least analyzed the cpp source file using Dynamatic so that\n");
     printf("comments are removed.\n");
+
+    char part_nb[MAX_NAME_LENGTH];
+    get_name(part_nb, "What is the target ? (part number)");
+
     hdl_source_t hdl_source;
     CHECK_CALL(hdl_create(&hdl_source), "hdl_create failed !");
     CHECK_CALL(parse_hdl(&hdl_source), "parse_hdl failed !");
@@ -42,7 +51,7 @@ int main(void) {
     CHECK_CALL_DO(create_hls(&hls, &hdl_source), "create_hls failed !", hdl_free(&hdl_source););
     CHECK_CALL_DO(parse_hls(&hls, &hdl_source), "parse_hls failed !", hdl_free(&hdl_source); hls_free(&hls););
 
-    CHECK_CALL_DO(generate_hls_script(&hls), "generate_hls_script failed !", hdl_free(&hdl_source););
+    CHECK_CALL_DO(generate_hls_script(&hls, part_nb), "generate_hls_script failed !", hdl_free(&hdl_source););
     CHECK_CALL_DO(launch_hls_script(), "launch_hls_script failed !", hdl_free(&hdl_source); hls_free(&hls););
 
     CHECK_CALL_DO(resolve_float_ops(&hls, &hdl_source), "resolve_float_ops failed !", hdl_free(&hdl_source); hls_free(&hls););
@@ -54,13 +63,13 @@ int main(void) {
     CHECK_CALL_DO(create_axi(&axi_ip, &project), "create_axi failed !", free_axi(&axi_ip); hls_free(&hls); project_free(&project););
 
     CHECK_CALL_DO(generate_AXI_script(&project, &axi_ip), "generate_AXI_script failed !", free_axi(&axi_ip); hls_free(&hls); project_free(&project););
-    CHECK_CALL_DO(generate_MAIN_script(&project), "generate_MAIN_script failed !", free_axi(&axi_ip); hls_free(&hls); project_free(&project););
+    CHECK_CALL_DO(generate_MAIN_script(&project, part_nb), "generate_MAIN_script failed !", free_axi(&axi_ip); hls_free(&hls); project_free(&project););
     CHECK_CALL_DO(launch_script("generate_project.tcl", hdl_source.exec_path), "launch_script failed !", free_axi(&axi_ip); hls_free(&hls); project_free(&project););
     
     CHECK_CALL_DO(update_arithmetic_units(&project, &hls, &axi_ip), "update_arithmetic_units failed !", hls_free(&hls); project_free(&project); free_axi(&axi_ip););
     CHECK_CALL_DO(read_axi_files(&axi_ip), "read_axi_files failed !", hls_free(&hls); project_free(&project); free_axi(&axi_ip););
     CHECK_CALL_DO(update_files(&project, &axi_ip), "update_files failed !", project_free(&project); free_axi(&axi_ip); hls_free(&hls););
-    CHECK_CALL_DO(generate_final_script(&project, &hls, &axi_ip), "generate_final_script failed !", project_free(&project); hls_free(&hls); free_axi(&axi_ip););
+    CHECK_CALL_DO(generate_final_script(&project, &hls, &axi_ip, part_nb), "generate_final_script failed !", project_free(&project); hls_free(&hls); free_axi(&axi_ip););
 
     CHECK_CALL_DO(launch_script("final_script.tcl", hdl_source.exec_path), "launch_script failed !", project_free(&project); hls_free(&hls); free_axi(&axi_ip););
 

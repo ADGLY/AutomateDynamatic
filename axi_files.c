@@ -24,6 +24,9 @@ auto_error_t create_axi(axi_ip_t* axi_ip, project_t* project) {
     CHECK_LENGTH(strlen(axi_ip->path) + strlen("/ip_repo") + 1, MAX_PATH_LENGTH);
     strcpy(axi_ip->path + strlen(axi_ip->path), "/ip_repo");
     axi_ip->revision = 1;
+
+    int written = snprintf(axi_ip->name, MAX_NAME_LENGTH - strlen("axi_ip_"), "axi_ip_%s", project->hdl_source->name);
+    CHECK_LENGTH(written, (int)(MAX_NAME_LENGTH - strlen("axi_ip_")));
     return ERR_NONE;
 }
 
