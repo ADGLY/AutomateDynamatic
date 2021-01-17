@@ -242,7 +242,11 @@ auto_error_t hdl_create(hdl_source_t* hdl_source) {
     char* result = getcwd(hdl_source->exec_path, MAX_PATH_LENGTH);
     CHECK_COND(result == NULL, ERR_IO, "getcwd error !");
 
-    CHECK_CALL(get_path(hdl_source->dir, "What is the directory of the Dynamatic output (hdl) ?"), "get_path failed !");
+    auto_error_t err = get_path(hdl_source->dir, "What is the directory of the Dynamatic output (hdl) ?", true);
+    while(err == ERR_IO) {
+        fprintf(stderr, "The path does not exist. Please enter a valid path !\n");
+        err = get_path(hdl_source->dir, "What is the directory of the Dynamatic output (hdl) ?", true);
+    }
 
     CHECK_CALL(get_name(hdl_source->top_file_name, "What is the name of the top file ?"), "get_name failed !");
 

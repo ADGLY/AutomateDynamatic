@@ -39,7 +39,7 @@ auto_error_t create_project(project_t* project, hdl_source_t* hdl_source) {
     memset(project, 0, sizeof(project_t));
     project->hdl_source = hdl_source;
 
-    CHECK_CALL(get_path(project->path, "What is the path of the Vivado project ?"), "get_path failed !");
+    CHECK_CALL(get_path(project->path, "What is the path of the Vivado project ?", false), "get_path failed !");
     CHECK_CALL(get_name(project->name, "What is the name of the Vivado project ?"), "get_name failed !");
 
     CHECK_CALL(get_array_size(project), "get_array_size failed !");

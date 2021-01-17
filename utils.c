@@ -66,10 +66,40 @@ auto_error_t get_name(char* name, const char* msg) {
     return ERR_NONE;
 }
 
-auto_error_t get_path(char* path, const char* msg) {
+auto_error_t get_path(char* path, const char* msg, bool must_exist) {
     char temp[MAX_PATH_LENGTH];
     CHECK_CALL(get_string(temp, msg, MAX_PATH_LENGTH), "get_string failed !");
     char* final_path = realpath(temp, path);
+    if(final_path == NULL) {
+        if(must_exist) {
+            return ERR_IO;
+        }
+        char** path_components;
+        uint8_t allocated = 0;
+        CHECK_CALL(allocate_str_arr(&path_components, &allocated), "allocate_str_arr failed !");
+        size_t nb_components = 0;
+        bool fully_resolved_path;
+        while(final_path == NULL && !fully_resolved_path) {
+            char* last_comp = strrchr(temp, '/');
+            if(last_comp == NULL) {
+                fully_resolved_path = true;
+            }
+            else {
+                if(nb_components == allocated) {
+                    CHECK_CALL_DO(allocate_str_arr(&path_components, &allocated), "allocate_str_arr failed !", free_str_arr(path_components, allocated));
+                }
+                strncpy(path_components[nb_components], last_comp, MAX_NAME_LENGTH);
+                nb_components++;
+                *last_comp = '\0';
+                final_path = realpath(temp, path);
+            }
+        }
+        for(uint8_t i = 0; i < nb_components; ++i) {
+            strcat(temp, path_components[i]);
+        }
+        free_str_arr(path_components, allocated);
+
+    }
     CHECK_COND(final_path == NULL && errno != ENOENT, ERR_PATH, "Could not resolve absolute path !");
     return ERR_NONE;
 }

@@ -47,30 +47,19 @@ void zynq_create_PS(FILE* tcl_script, char* board) {
 
 void zynq_connection_automation(FILE* tcl_script, project_t* project, axi_ip_t* axi_ip) {
 
-    fprintf(tcl_script, "save_bd_design\n");
     fprintf(tcl_script, "startgroup\n");
     for(uint16_t i = 0; i < project->hdl_source->nb_arrays; ++i) {
         hdl_array_t* arr = &(project->hdl_source->arrays[i]);
         GET_SUFFIX(arr, suffix);
-
-        fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7_0/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}");
-        fprintf(tcl_script, "  [get_bd_pins axi_bram_ctrl_%s_%s/s_axi_aclk]\n", arr->name, suffix);
+        fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:axi4 ");
+        fprintf(tcl_script, "-config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7_0/M_AXI_GP0} ");
+        fprintf(tcl_script, "Slave {/axi_bram_ctrl_%s_%s/S_AXI} ddr_seg {Auto} ", arr->name, suffix);
+        fprintf(tcl_script, "intc_ip {New AXI SmartConnect} master_apm {0}}  [get_bd_intf_pins axi_bram_ctrl_%s_%s/S_AXI]\n", arr->name, suffix);
     }
-
-    fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:clkrst -config { Clk {/processing_system7_0/FCLK_CLK0 (100 MHz)} Freq {100} Ref_Clk0 {} Ref_Clk1 {} Ref_Clk2 {}}");
-    fprintf(tcl_script, "  [get_bd_pins %s_0/csr_aclk]", axi_ip->name);
-
-    hdl_array_t* first_arr = &(project->hdl_source->arrays[0]);
-    GET_SUFFIX(first_arr, suffix)
-    fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7_0/M_AXI_GP0}");
-    fprintf(tcl_script, " Slave {/axi_bram_ctrl_%s_%s/S_AXI} ddr_seg {Auto} intc_ip {/smartconnect_0} master_apm {0}}", first_arr->name, suffix);
-    fprintf(tcl_script, "  [get_bd_intf_pins processing_system7_0/M_AXI_GP0]\n");
-
-    /*memory_connection_automation_zynq(tcl_script, project->hdl_source);
-    fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config { Clk_master {Auto} Clk_slave {Auto} Clk_xbar {Auto} Master {/processing_system7_0/M_AXI_GP0}");
-    fprintf(tcl_script, " Slave {/%s_0/%s} ddr_seg {Auto} intc_ip {New AXI Interconnect} master_apm {0}}", axi_ip->name, axi_ip->interface_name);
-    fprintf(tcl_script, "  [get_bd_intf_pins %s_0/%s]\n", axi_ip->name, axi_ip->interface_name);*/
-
+    fprintf(tcl_script, "apply_bd_automation -rule xilinx.com:bd_rule:axi4 ");
+    fprintf(tcl_script, "-config { Clk_master {/processing_system7_0/FCLK_CLK0 (100 MHz)} Clk_slave {/processing_system7_0/FCLK_CLK0 (100 MHz)} Clk_xbar {/processing_system7_0/FCLK_CLK0 (100 MHz)} Master {/processing_system7_0/M_AXI_GP0} ");
+    fprintf(tcl_script, "Slave {/%s_0/%s} ddr_seg {Auto} ", axi_ip->name, axi_ip->interface_name);
+    fprintf(tcl_script, "intc_ip {New AXI SmartConnect} master_apm {0}}  [get_bd_intf_pins %s_0/%s]\n", axi_ip->name, axi_ip->interface_name);
     fprintf(tcl_script, "endgroup\n");
 
     for(size_t i = 0; i < project->hdl_source->nb_arrays; ++i) {

@@ -532,39 +532,6 @@ auto_error_t generate_final_script(project_t* project, vivado_hls_t* hls, axi_ip
         CHECK_CALL_DO(generate_memory(tcl_script, &(project->hdl_source->arrays[i]), axi_ip, project->hdl_source, array_size), "generate_memory failed !", fclose(tcl_script););
     }
 
-    hdl_source_t* hdl = project->hdl_source;
-
-    fprintf(tcl_script, "set latest_ver [get_ipdefs -filter {NAME == smartconnect}]\n");
-    fprintf(tcl_script, "create_bd_cell -type ip -vlnv ");
-    fprintf(tcl_script, "$latest_ver smartconnect_0\n");
-    fprintf(tcl_script, "set_property -dict [list CONFIG.NUM_MI {%zu} CONFIG.NUM_SI {1}] ", hdl->nb_arrays + 1);
-    fprintf(tcl_script, "[get_bd_cells smartconnect_0]\n");
-
-
-    char master_port[MAX_NAME_LENGTH];
-    memset(master_port, 0, sizeof(MAX_NAME_LENGTH) * sizeof(char));
-    hdl_array_t* arrays = hdl->arrays;
-    for(uint16_t i = 0; i < hdl->nb_arrays; ++i) {
-        hdl_array_t arr = arrays[i];
-        snprintf(master_port, MAX_NAME_LENGTH, "M%02" PRIu16 "_AXI", i);
-        const char* suffix;
-        if(arr.read && arr.write) {
-            suffix = "read_write";
-        }
-        else if(arr.read) {
-            suffix = "read";
-        }
-        else {
-            suffix = "write";
-        }
-        fprintf(tcl_script, "connect_bd_intf_net [get_bd_intf_pins smartconnect_0/%s] ", master_port);
-        fprintf(tcl_script, "[get_bd_intf_pins axi_bram_ctrl_%s_%s/S_AXI]\n", arr.name, suffix);
-    }
-
-    snprintf(master_port, MAX_NAME_LENGTH, "M%02" PRIu64 "_AXI", hdl->nb_arrays);
-    fprintf(tcl_script, "connect_bd_intf_net [get_bd_intf_pins smartconnect_0/%s] ", master_port);
-    fprintf(tcl_script, "[get_bd_intf_pins %s_0/%s]\n", axi_ip->name, axi_ip->interface_name);
-
     script_func_t script_func = select_part_script(part);
 
     if(script_func != NULL) {

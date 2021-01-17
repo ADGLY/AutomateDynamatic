@@ -417,16 +417,16 @@ auto_error_t write_axi_file(project_t* project, axi_ip_t* axi_ip) {
 
     int16_t nb_removed = 0;
     if(last_reg < 10) {
-        nb_removed = 10;
+        nb_removed = 13;
     }
     else if(last_reg >= 10 && last_reg < 100) {
-        nb_removed = 11;
+        nb_removed = 14;
     }
     else {
-        nb_removed = 12;
+        nb_removed = 15;
     }
     fseek(new_axi_file, -nb_removed, SEEK_CUR);
-    fprintf(new_axi_file, " axi_end_out;");
+    fprintf(new_axi_file, "(%zu downto 0) <= axi_end_out;", hdl_source->end_out_width - 1);
 
     CHECK_CALL_DO(advance_in_file(&reg, match, new_axi_file, &axi_file_off, "-- Add user logic here"), "advance in file failed !",
         fclose(new_axi_file););
