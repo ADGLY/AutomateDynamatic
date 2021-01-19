@@ -7,6 +7,7 @@
 #include <inttypes.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <math.h>
 #include "tcl.h"
 #include "tcl_board.h"
 
@@ -29,12 +30,13 @@ auto_error_t generate_MAIN_script(project_t* project, const char* part) {
     }
     fprintf(tcl_script, "set_property target_language VHDL [current_project]\n");
     char ip_script_path[MAX_PATH_LENGTH];
+    memset(ip_script_path, 0, MAX_PATH_LENGTH * sizeof(char));
     
     strncpy(ip_script_path, project->hdl_source->exec_path, MAX_PATH_LENGTH);
 
     CHECK_COND_DO(strlen(ip_script_path) + strlen("/generate_axi_ip.tcl") + 1 >= MAX_PATH_LENGTH, ERR_NAME_TOO_LONG, "", fclose(tcl_script););
     
-    strcpy(ip_script_path + strlen(ip_script_path), "/generate_axi_ip.tcl");
+    strncpy(ip_script_path + strlen(ip_script_path), "/generate_axi_ip.tcl", MAX_PATH_LENGTH - strlen(ip_script_path));
 
     fprintf(tcl_script, "source %s", ip_script_path);
 
@@ -49,7 +51,7 @@ auto_error_t generate_AXI_script(project_t* project, axi_ip_t* axi_ip) {
     CHECK_PARAM(axi_ip);
     CHECK_PARAM(project->hdl_source);
 
-    strcpy(axi_ip->interface_name, "CSR");
+    strncpy(axi_ip->interface_name, "CSR", MAX_NAME_LENGTH);
 
     FILE* tcl_script = fopen("generate_axi_ip.tcl", "w");
     CHECK_NULL(tcl_script, ERR_IO, "Could not open file : generate_axi_ip.tcl");
@@ -75,6 +77,8 @@ auto_error_t generate_AXI_script(project_t* project, axi_ip_t* axi_ip) {
     CHECK_COND_DO(err != 0, ERR_REGEX, "Reg compile error !", fclose(tcl_script););
 
     char files_to_add[MAX_DYNAMATIC_FILES][MAX_NAME_LENGTH];
+    memset(files_to_add, 0, sizeof(files_to_add));
+
     DIR *d;
     d = opendir(project->hdl_source->dir);
     CHECK_COND_DO(d == NULL, ERR_IO, "Could not open dir !", fclose(tcl_script););
@@ -89,7 +93,7 @@ auto_error_t generate_AXI_script(project_t* project, axi_ip_t* axi_ip) {
         err = regexec(&reg, dir->d_name, 1, (regmatch_t*)match, 0);
         if(err == 0) {
             CHECK_LENGTH(strlen(dir->d_name), MAX_NAME_LENGTH);
-            strcpy(files_to_add[nb_files++], dir->d_name);
+            strncpy(files_to_add[nb_files++], dir->d_name, MAX_NAME_LENGTH);
         }
     }
     closedir(d);
@@ -122,12 +126,9 @@ auto_error_t generate_adapters(FILE* tcl_script, hdl_source_t* hdl, hdl_array_t*
 
     char write_enb_filename[MAX_NAME_LENGTH];
     memset(write_enb_filename, 0, sizeof(char) * MAX_NAME_LENGTH);
-    strncpy(write_enb_filename, "write_enb_adapter", MAX_NAME_LENGTH);
-
-    strncat(write_enb_filename, suffix, MAX_NAME_LENGTH);
-
     const char* hdl_ext = ".vhd";
-    strncat(write_enb_filename, hdl_ext, MAX_NAME_LENGTH);
+    int written = snprintf(write_enb_filename, MAX_NAME_LENGTH, "write_enb_adapter%s%s", suffix, hdl_ext);
+    CHECK_LENGTH(written, MAX_NAME_LENGTH);
 
     FILE* write_enb_adapter = fopen(write_enb_filename, "w");
     CHECK_NULL(write_enb_adapter, ERR_IO, "Could not open file : write_enb_adapter.vhd");
@@ -164,12 +165,8 @@ auto_error_t generate_adapters(FILE* tcl_script, hdl_source_t* hdl, hdl_array_t*
 
     char address_adapter_filename[MAX_NAME_LENGTH];
     memset(address_adapter_filename, 0, sizeof(char) * MAX_NAME_LENGTH);
-    strncpy(address_adapter_filename, "address_adapter", MAX_NAME_LENGTH);
-
-    strncat(address_adapter_filename, suffix, MAX_NAME_LENGTH);
-
-    strncat(address_adapter_filename, hdl_ext, MAX_NAME_LENGTH);
-
+    written = snprintf(address_adapter_filename, MAX_NAME_LENGTH, "address_adapter%s%s", suffix, hdl_ext);
+    CHECK_LENGTH(written, MAX_NAME_LENGTH);
     FILE* address_adapter = fopen(address_adapter_filename, "w");
     CHECK_NULL(address_adapter, ERR_IO, "Could not open file : address_adapter.vhd");
 
@@ -260,6 +257,8 @@ auto_error_t generate_memory_interface(FILE* tcl_script, axi_ip_t* axi_ip, const
 auto_error_t create_mem_interface(size_t array_size, const char* filename_suffix, size_t array_width) {
     
     char filename[MAX_NAME_LENGTH];
+    memset(filename, 0, sizeof(MAX_NAME_LENGTH) * sizeof(char));
+
     int written = snprintf(filename, MAX_NAME_LENGTH, "mem_interface%s.vhd", filename_suffix);
     CHECK_LENGTH(written, MAX_NAME_LENGTH);
 
@@ -377,6 +376,7 @@ auto_error_t generate_memory(FILE* tcl_script, hdl_array_t* arr, axi_ip_t* axi_i
     CHECK_PARAM(axi_ip);
 
     char filename_suffix[MAX_NAME_LENGTH];
+    memset(filename_suffix, 0, sizeof(MAX_NAME_LENGTH) * sizeof(char));
 
     if(arr->read && arr->write) {
 
@@ -483,8 +483,20 @@ auto_error_t generate_final_script(project_t* project, vivado_hls_t* hls, axi_ip
         }
     }
 
+
     fprintf(tcl_script, "ipx::open_ipxact_file %s/%s_1.0/component.xml\n", axi_ip->path, axi_ip->name);
+
+    fprintf(tcl_script, "set_property widget {textEdit} [ipgui::get_guiparamspec -name \"C_%s_DATA_WIDTH\" -component [ipx::current_core] ]\n", axi_ip->interface_name);
+    fprintf(tcl_script, "set_property value_validation_type none [ipx::get_user_parameters C_%s_DATA_WIDTH -of_objects [ipx::current_core]]\n", axi_ip->interface_name);
+    fprintf(tcl_script, "set_property enablement_value true [ipx::get_user_parameters C_%s_DATA_WIDTH -of_objects [ipx::current_core]]\n", axi_ip->interface_name);
+    fprintf(tcl_script, "set_property widget {textEdit} [ipgui::get_guiparamspec -name \"C_%s_ADDR_WIDTH\" -component [ipx::current_core] ]\n", axi_ip->interface_name);
+    fprintf(tcl_script, "set_property enablement_value true [ipx::get_user_parameters C_%s_ADDR_WIDTH -of_objects [ipx::current_core]]\n", axi_ip->interface_name);
+    fprintf(tcl_script, "set_property value_validation_type none [ipx::get_user_parameters C_%s_ADDR_WIDTH -of_objects [ipx::current_core]]\n", axi_ip->interface_name);
+
+
+
     fprintf(tcl_script, "ipx::merge_project_changes hdl_parameters [ipx::current_core]\n");
+
     axi_ip->revision = axi_ip->revision + 1;
     fprintf(tcl_script, "set_property core_revision %d [ipx::current_core]\n", axi_ip->revision);
     fprintf(tcl_script, "ipx::create_xgui_files [ipx::current_core]\n");
@@ -557,13 +569,17 @@ auto_error_t generate_hls_script(vivado_hls_t* hls, const char* part) {
     fprintf(tcl_script, "set_top %s\n", hls->fun_name);
 
     char dir_path[MAX_PATH_LENGTH];
+    memset(dir_path, 0, MAX_PATH_LENGTH * sizeof(char));
+
     strncpy(dir_path, hls->source_path, MAX_PATH_LENGTH);
 
     char* last_slash = strrchr(dir_path, '/');
-    CHECK_COND_DO(last_slash == NULL, ERR_BAD_PARAM, "Wrong path for dir of source C/C++ file !", fclose(tcl_script););
+    CHECK_COND_DO(last_slash == NULL, ERR_NULL, "Wrong path for dir of source C/C++ file !", fclose(tcl_script););
     *last_slash = '\0';
 
     char main_name[MAX_NAME_LENGTH];
+    memset(main_name, 0, MAX_NAME_LENGTH * sizeof(char));
+
     last_slash = strrchr(hls->source_path, '/');
     char* start_cpy;
     if(last_slash == NULL) {
@@ -572,6 +588,7 @@ auto_error_t generate_hls_script(vivado_hls_t* hls, const char* part) {
     else {
         start_cpy = last_slash + 1;
     }
+    CHECK_COND(strlen(start_cpy) > MAX_NAME_LENGTH, ERR_NAME_TOO_LONG, "Name too long !");
     strncpy(main_name, start_cpy, MAX_NAME_LENGTH);
     *strrchr(main_name, '.') = '\0';
     char* name_part = strrchr(main_name, '_');
@@ -580,9 +597,13 @@ auto_error_t generate_hls_script(vivado_hls_t* hls, const char* part) {
     }
 
     char full_cpp_name[MAX_NAME_LENGTH];
+    memset(full_cpp_name, 0, MAX_NAME_LENGTH * sizeof(char));
+
     strncpy(full_cpp_name, start_cpy, MAX_NAME_LENGTH);
 
     char cpp_name_pattern[MAX_NAME_LENGTH];
+    memset(cpp_name_pattern, 0, sizeof(MAX_NAME_LENGTH) * sizeof(char));
+
     snprintf(cpp_name_pattern, MAX_NAME_LENGTH, "%s", main_name);
 
     regex_t reg_cpp_name;
@@ -617,12 +638,12 @@ auto_error_t generate_hls_script(vivado_hls_t* hls, const char* part) {
             if(err != 0) {
                 if(err == REG_NOMATCH) {
                     CHECK_LENGTH(strlen(dir->d_name), MAX_NAME_LENGTH);
-                    strcpy(files_to_add[count++], dir->d_name);
+                    strncpy(files_to_add[count++], dir->d_name, MAX_NAME_LENGTH);
                 }
             }
             else {
                 if(strcmp(dir->d_name, full_cpp_name) == 0 || strcmp(".h", strrchr(dir->d_name, '.')) == 0) {
-                    strcpy(files_to_add[count++], dir->d_name);
+                    strncpy(files_to_add[count++], dir->d_name, MAX_NAME_LENGTH);
                 }
             }
         }

@@ -80,6 +80,8 @@ void zynq_connection_automation(FILE* tcl_script, project_t* project, axi_ip_t* 
 void script_zc706(FILE* tcl_script, project_t* project, axi_ip_t* axi_ip) {
 
     char board[MAX_NAME_LENGTH];
+    memset(board, 0, sizeof(char) * MAX_NAME_LENGTH);
+
     strncpy(board, "zc706", MAX_NAME_LENGTH);
 
     zynq_create_PS(tcl_script, board);
@@ -89,6 +91,7 @@ void script_zc706(FILE* tcl_script, project_t* project, axi_ip_t* axi_ip) {
 void script_zc702(FILE* tcl_script, project_t* project, axi_ip_t* axi_ip) {
 
     char board[MAX_NAME_LENGTH];
+    memset(board, 0, sizeof(char) * MAX_NAME_LENGTH);
     strncpy(board, "zc702", MAX_NAME_LENGTH);
 
     zynq_create_PS(tcl_script, board);

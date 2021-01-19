@@ -33,7 +33,10 @@ char* get_source(const char* path, size_t* file_size) {
         fclose(file);
         return NULL;
     }
-    fread(source, sizeof(char), size, file);
+    size_t read = fread(source, sizeof(char), size, file);
+    if(read < size) {
+        return NULL;
+    }
     fclose(file);
     if(file_size != NULL) {
         *file_size = size;
@@ -68,6 +71,7 @@ auto_error_t get_name(char* name, const char* msg) {
 
 auto_error_t get_path(char* path, const char* msg, bool must_exist) {
     char temp[MAX_PATH_LENGTH];
+    memset(temp, 0, sizeof(char) * MAX_NAME_LENGTH);
     CHECK_CALL(get_string(temp, msg, MAX_PATH_LENGTH), "get_string failed !");
     char* final_path = realpath(temp, path);
     if(final_path == NULL) {
@@ -78,7 +82,7 @@ auto_error_t get_path(char* path, const char* msg, bool must_exist) {
         uint8_t allocated = 0;
         CHECK_CALL(allocate_str_arr(&path_components, &allocated), "allocate_str_arr failed !");
         size_t nb_components = 0;
-        bool fully_resolved_path;
+        bool fully_resolved_path = false;
         while(final_path == NULL && !fully_resolved_path) {
             char* last_comp = strrchr(temp, '/');
             if(last_comp == NULL) {
@@ -95,7 +99,8 @@ auto_error_t get_path(char* path, const char* msg, bool must_exist) {
             }
         }
         for(uint8_t i = 0; i < nb_components; ++i) {
-            strcat(temp, path_components[i]);
+            int written = snprintf(temp, MAX_PATH_LENGTH, "%s", path_components[i]);
+            CHECK_COND_DO(written >= MAX_PATH_LENGTH, ERR_NAME_TOO_LONG, "", free_str_arr(path_components, allocated););
         }
         free_str_arr(path_components, allocated);
 
@@ -126,8 +131,8 @@ auto_error_t allocate_str_arr(char*** str_arr, uint8_t* last) {
         *last = 5;
     }
     else {
-        new_str_arr = realloc(*str_arr, *last * 2 * sizeof(char*));
-        *last = *last * 2;
+        new_str_arr = realloc(*str_arr, (size_t)(*last * (size_t)2 * sizeof(char*)));
+        *last = (uint8_t)(*last * 2);
     }
     CHECK_COND_DO(new_str_arr == NULL, ERR_MEM, "Could not realloc for str_arr !", free_str_arr(*str_arr, prev_last););
     *str_arr = new_str_arr;
@@ -140,8 +145,8 @@ auto_error_t allocate_str_arr(char*** str_arr, uint8_t* last) {
 }
 
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-parameter"
+//#pragma clang diagnostic push
+//#pragma clang diagnostic ignored "-Wunused-parameter"
 int unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
 {
     int rv = remove(fpath);
@@ -151,7 +156,7 @@ int unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW
 
     return rv;
 }
-#pragma clang diagnostic pop
+//#pragma clang diagnostic pop
 
 void clean_folder() {
     nftw("vivado_hls", unlink_cb, 64, FTW_DEPTH | FTW_PHYS);
@@ -186,6 +191,8 @@ void clean_folder() {
             remove(dir->d_name);
         }
     }
+
+    regfree(&reg);
 
     closedir(d);
 }

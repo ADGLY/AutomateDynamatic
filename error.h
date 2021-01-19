@@ -2,14 +2,14 @@
 
 
 typedef enum {
-    ERR_NONE, ERR_MEM, ERR_IO, ERR_REGEX, ERR_NAME_TOO_LONG, ERR_BAD_PARAM, ERR_PATH
+    ERR_NONE, ERR_MEM, ERR_IO, ERR_REGEX, ERR_NAME_TOO_LONG, ERR_NULL, ERR_PATH
 } auto_error_t;
 
 #define CHECK_PARAM(param)                                          \
 do {                                                                \
     if((param) == NULL) {                                           \
         fprintf(stderr, "%s:%d | Bad param\n", __FILE__, __LINE__); \
-        return ERR_BAD_PARAM;                                       \
+        return ERR_NULL;                                       \
     }                                                               \
 } while(0);
 

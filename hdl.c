@@ -97,7 +97,7 @@ auto_error_t get_arrays(hdl_source_t* hdl_source) {
         
         strncpy(str_width, source_off - match[0].rm_eo + match[2].rm_so, len);
 
-        uint16_t width = (uint16_t)strtoll(str_width, NULL, 10) + 1;
+        uint16_t width = (uint16_t)(strtoll(str_width, NULL, 10) + 1);
         arrays[array_count].width = width;
 
         array_count++;
@@ -142,14 +142,16 @@ auto_error_t fill_interfaces(bram_interface_t* read_interface, bram_interface_t*
         size_t read_total_len = name_len + strlen(read_ports[i]) + 1;
         CHECK_LENGTH(read_total_len, MAX_NAME_LENGTH);
 
-        strncpy(pointer_to_read, arr_name, name_len);
-        strncpy(pointer_to_read + name_len, read_ports[i], strlen(read_ports[i]) + 1);
+        strncpy(pointer_to_read, arr_name, MAX_NAME_LENGTH);
+        CHECK_COND(MAX_NAME_LENGTH - name_len > MAX_NAME_LENGTH || MAX_NAME_LENGTH - name_len < strlen(read_ports[i]) + 1, ERR_NAME_TOO_LONG, "Name too long !");
+        strncpy(pointer_to_read + name_len, read_ports[i], MAX_NAME_LENGTH - name_len);
 
         size_t write_total_len = name_len + strlen(write_ports[i]) + 1;
         CHECK_LENGTH(write_total_len, MAX_NAME_LENGTH);
 
-        strncpy(pointer_to_write, arr_name, name_len);
-        strncpy(pointer_to_write + name_len, write_ports[i], strlen(write_ports[i]) + 1);
+        strncpy(pointer_to_write, arr_name, MAX_NAME_LENGTH);
+        CHECK_COND(MAX_NAME_LENGTH - name_len > MAX_NAME_LENGTH || MAX_NAME_LENGTH - name_len < strlen(write_ports[i]) + 1, ERR_NAME_TOO_LONG, "Name too long !");
+        strncpy(pointer_to_write + name_len, write_ports[i], MAX_NAME_LENGTH - name_len);
 
         pointer_to_read += MAX_NAME_LENGTH;
         pointer_to_write += MAX_NAME_LENGTH;
@@ -206,7 +208,7 @@ auto_error_t get_params(hdl_source_t* hdl_source) {
         strncpy(str_width, source_off - match[0].rm_eo + match[2].rm_so, len);
 
         uint16_t width = (uint16_t)strtoll(str_width, NULL, 10);
-        params[param_count].width = width;
+        params[param_count].width = (uint16_t)(width + 1);
 
 
         param_count++;
@@ -223,6 +225,7 @@ auto_error_t get_params(hdl_source_t* hdl_source) {
     if(param_count == 0) {
         hdl_source->params = NULL;
         hdl_source->nb_params = param_count;
+        free(params);
     }
     else {
         hdl_in_param_t* new_params = realloc(params, sizeof(hdl_in_param_t) * param_count);
@@ -250,12 +253,14 @@ auto_error_t hdl_create(hdl_source_t* hdl_source) {
 
     CHECK_CALL(get_name(hdl_source->top_file_name, "What is the name of the top file ?"), "get_name failed !");
 
-    strcpy(hdl_source->top_file_path, hdl_source->dir);
+    strncpy(hdl_source->top_file_path, hdl_source->dir, MAX_PATH_LENGTH);
     hdl_source->top_file_path[strlen(hdl_source->dir)] = '/';
     if(strlen(hdl_source->top_file_name) + strlen(hdl_source->dir) + 2 >= MAX_PATH_LENGTH) {
         fprintf(stderr, "Name too long !\n");
     }
-    strcpy(hdl_source->top_file_path + strlen(hdl_source->dir) + 1, hdl_source->top_file_name);
+    CHECK_COND((size_t)(MAX_PATH_LENGTH - strlen(hdl_source->dir) - 1) > (size_t)MAX_PATH_LENGTH || 
+    MAX_PATH_LENGTH - strlen(hdl_source->dir) - 1 < strlen(hdl_source->top_file_name), ERR_NAME_TOO_LONG, "Name too long !");
+    strncpy(hdl_source->top_file_path + strlen(hdl_source->dir) + 1, hdl_source->top_file_name, MAX_PATH_LENGTH - strlen(hdl_source->dir) - 1);
     return ERR_NONE;
 }
 
@@ -263,12 +268,14 @@ auto_error_t get_end_out_width(hdl_source_t* hdl_source) {
     regmatch_t match[2];
     CHECK_CALL(get_simple_info(hdl_source, "end_out[[:space:]]*:[[:space:]]*out[[:space:]]*std_logic_vector[[:space:]]*\\(([[:digit:]]+)", match, 2), "get_simple_info failed !");
     char width[MAX_NAME_LENGTH];
+    memset(width, 0, MAX_NAME_LENGTH * sizeof(char));
+
     size_t len = (size_t)(match[1].rm_eo - match[1].rm_so);
     CHECK_LENGTH(len - 1, MAX_NAME_LENGTH);
 
     strncpy(width, hdl_source->source + match[1].rm_so, len);
     width[len] = '\0';
-    hdl_source->end_out_width = (size_t)(strtoll(width, NULL, 10) + 1);
+    hdl_source->end_out_width = (uint16_t)(strtoll(width, NULL, 10) + 1);
     return ERR_NONE;
 }
 
@@ -284,6 +291,16 @@ auto_error_t parse_hdl(hdl_source_t* hdl_source) {
     CHECK_CALL(get_arrays(hdl_source), "get_arrays failed !");
     CHECK_CALL(fill_arrays_ports(hdl_source), "fill_arrays_ports failed !");
     CHECK_CALL(get_params(hdl_source), "get_params failed !");
+
+    uint16_t max_width = hdl_source->end_out_width;
+    for(size_t i = 0; i < hdl_source->nb_params; ++i) {
+        if(hdl_source->params[i].width > max_width) {
+            max_width = hdl_source->params[i].width;
+        }
+    }
+
+    hdl_source->max_param_width = max_width;
+
     return ERR_NONE;
 }
 

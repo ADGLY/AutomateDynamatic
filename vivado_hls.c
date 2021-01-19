@@ -17,17 +17,20 @@ auto_error_t create_hls(vivado_hls_t* hls, hdl_source_t* hdl_source) {
     memset(hls, 0, sizeof(vivado_hls_t));
 
     char path_temp[MAX_PATH_LENGTH];
+    memset(path_temp, 0, sizeof(char) * MAX_PATH_LENGTH);
     strncpy(path_temp, hdl_source->dir, MAX_PATH_LENGTH);
     uint16_t max = (uint16_t)(MAX_PATH_LENGTH - strlen(path_temp) - 1);
 
     char* temp_hdl_name = strrchr(hdl_source->top_file_path, '/') + 1;
     char pattern[MAX_NAME_LENGTH];
+    memset(pattern, 0, MAX_NAME_LENGTH * sizeof(char));
 
     regex_t reg;
     regmatch_t match[2];
 
     char hdl_name[MAX_NAME_LENGTH];
-    strncpy(hdl_name, temp_hdl_name, MAX_NAME_LENGTH);
+    memset(hdl_name, 0, sizeof(char) * MAX_NAME_LENGTH);
+    strncpy(hdl_name, temp_hdl_name, MAX_NAME_LENGTH - 1);
     *strrchr(hdl_name, '.') = '\0';
     int written = snprintf(pattern, MAX_NAME_LENGTH, "(.*)_optimized");
     CHECK_LENGTH(written, MAX_NAME_LENGTH);
@@ -152,6 +155,7 @@ bool check_square_bracket(const char* look_for_arrays, hdl_array_t* arr, check_m
     regex_t reg;
     regmatch_t match[1];
     char pattern[MAX_NAME_LENGTH];
+    memset(pattern, 0, sizeof(MAX_NAME_LENGTH) * sizeof(char));
     if(mode == READ) {
         //%s[[:space:]]*(\\[)[^]]*(\\])([^=]*==[^=]*)*[^=;]*;
         int written = snprintf(pattern, MAX_NAME_LENGTH, "%s[[:space:]]*((\\[)[^]]*(\\]))+([^=]*==[^=]*)*[^=;]*;", arr->name);
@@ -195,6 +199,7 @@ bool check_parentheses(const char* look_for_arrays, hdl_array_t* arr, check_mode
     regex_t reg;
     regmatch_t match[2];
     char pattern[MAX_NAME_LENGTH];
+    memset(pattern, 0, MAX_NAME_LENGTH * sizeof(char));
 
     if(mode == READ) {
         int written = snprintf(pattern, MAX_NAME_LENGTH, "[*](\\((?:[^)(]+|(?1))*+\\))([^=]*==[^=]*)*[^=;]*;");
@@ -251,6 +256,7 @@ auto_error_t determine_read_or_write(hdl_source_t* hdl_source, const char* sourc
     for(size_t i = 0; i < hdl_source->nb_arrays; ++i) {
         const char* name = hdl_source->arrays[i].name;
         char pattern[MAX_NAME_LENGTH];
+        memset(pattern, 0, sizeof(MAX_NAME_LENGTH));
         int written = snprintf(pattern, MAX_NAME_LENGTH, "\\w+(\\s)*%s(\\s)*\\[", name);
         CHECK_LENGTH(written, MAX_NAME_LENGTH);
 
@@ -362,6 +368,7 @@ auto_error_t resolve_op_name(char* op_name, const char* path, const char* fun_na
     strncpy(comp_name, fop_file + match[1].rm_so, name_len);
 
     char pattern[MAX_NAME_LENGTH];
+    memset(pattern, 0, sizeof(MAX_NAME_LENGTH) * sizeof(char));
     int written = snprintf(pattern, MAX_NAME_LENGTH, "%s_[[:alnum:]]*_([[:alnum:]]*)", fun_name);
     CHECK_COND_DO(written >= MAX_NAME_LENGTH, ERR_NAME_TOO_LONG, "Name too long !", free(fop_file););
 
@@ -388,7 +395,7 @@ auto_error_t check_file(uint8_t* count, float_op_t* floats, const char* float_pa
     char file_path[MAX_PATH_LENGTH];
     memset(file_path, 0, sizeof(char) * MAX_PATH_LENGTH);
 
-    strncpy(file_path, float_paths, MAX_PATH_LENGTH);
+    strncpy(file_path, float_paths, MAX_PATH_LENGTH - 1);
     size_t len = strlen(file_path);
     CHECK_LENGTH(len, MAX_PATH_LENGTH - 1);
     file_path[len] = '/';
@@ -433,7 +440,7 @@ auto_error_t check_file(uint8_t* count, float_op_t* floats, const char* float_pa
     if(op == NULL) {
         op = &(floats[*count]);
         strncpy(op->name, op_name, MAX_NAME_LENGTH);
-        *count = *count + 1;
+        *count = (uint8_t)(*count + 1);
     }
     if(mode == HDL) {
         path_to_modify = op->hdl_path;
@@ -451,6 +458,7 @@ auto_error_t update_float_op(const char* float_paths, vivado_hls_t* hls) {
     CHECK_PARAM(hls);
     
     char hdl_name[MAX_NAME_LENGTH];
+    memset(hdl_name, 0, MAX_NAME_LENGTH * sizeof(char));
     strncpy(hdl_name, hls->fun_name, MAX_NAME_LENGTH);
     uint16_t max = (uint16_t)(MAX_NAME_LENGTH - strlen(hdl_name));
     strncat(hdl_name, ".vhd", max);
@@ -467,10 +475,10 @@ auto_error_t update_float_op(const char* float_paths, vivado_hls_t* hls) {
     struct dirent *dir;
     while ((dir = readdir(d)) != NULL) {
         if(count == last) {
-            float_op_t* new_float_ops = realloc(floats, last * 2);
+            float_op_t* new_float_ops = realloc(floats, (size_t)(last * 2));
             CHECK_COND_DO(new_float_ops == NULL, ERR_MEM, "Could not reallocate for float ops !", closedir(d); free(floats););
             floats = new_float_ops;
-            last = last * 2;
+            last = (uint8_t)(last * 2);
         }
         if(strncmp(hdl_name, dir->d_name, MAX_NAME_LENGTH) != 0) {
             char* file_ext = strrchr(dir->d_name, '.');
@@ -495,6 +503,7 @@ auto_error_t find_float_op(vivado_hls_t* hls) {
     CHECK_PARAM(hls);
 
     char float_paths[MAX_PATH_LENGTH];
+    memset(float_paths, 0, sizeof(char) * MAX_PATH_LENGTH);
     strncpy(float_paths, hls->project_path, MAX_PATH_LENGTH);
     uint16_t max = (uint16_t)(MAX_PATH_LENGTH - strlen(float_paths) - 1);
     int written = snprintf(float_paths + strlen(float_paths), max, 
@@ -511,11 +520,13 @@ auto_error_t open_dot_file(vivado_hls_t* hls, hdl_source_t* hdl) {
     CHECK_PARAM(hdl);
 
     char dot_file_name[MAX_NAME_LENGTH];
-    strcpy(dot_file_name, hdl->top_file_name);
+    memset(dot_file_name, 0, sizeof(char) * MAX_NAME_LENGTH);
+    strncpy(dot_file_name, hdl->top_file_name, MAX_NAME_LENGTH);
     *strrchr(dot_file_name, '.') = '\0';
-    strcat(dot_file_name, ".dot");
+    strncat(dot_file_name, ".dot", MAX_NAME_LENGTH - 1);
 
     char dot_file_path[MAX_PATH_LENGTH];
+    memset(dot_file_path, 0, sizeof(char) * MAX_PATH_LENGTH);
     strncpy(dot_file_path, hdl->dir, MAX_PATH_LENGTH);
     
     uint16_t max = (uint16_t)(MAX_PATH_LENGTH - strlen(dot_file_path));
@@ -531,7 +542,8 @@ auto_error_t open_dot_file(vivado_hls_t* hls, hdl_source_t* hdl) {
 
     regex_t reg;
     regmatch_t match[3];
-    char pattern[MAX_NAME_LENGTH]; 
+    char pattern[MAX_NAME_LENGTH];
+    memset(pattern, 0, sizeof(char) * MAX_NAME_LENGTH);
     for(uint8_t i = 0; i < hls->nb_float_op; ++i) {
         float_op_t* float_op = &(hls->float_ops[i]);
         char* dot_source_off = dot_source;
@@ -552,7 +564,7 @@ auto_error_t open_dot_file(vivado_hls_t* hls, hdl_source_t* hdl) {
 
             char* start_match = dot_source + match[0].rm_eo;
             uint8_t dot_latency = (uint8_t)strtol(start_match, NULL, 10);
-            float_op->latency = dot_latency - 2;
+            float_op->latency = (uint8_t)(dot_latency - 2);
             regfree(&reg);
         }
         char** name_list = NULL;
@@ -578,7 +590,15 @@ auto_error_t open_dot_file(vivado_hls_t* hls, hdl_source_t* hdl) {
         }
         regfree(&reg);
         CHECK_COND_DO(nb_names == 0, ERR_IO, "At least one name is needed !", free(dot_source); free_str_arr(name_list, last););
-        float_op->arith_unit_name_list = name_list;
+        for(uint8_t j = nb_names; j < last; ++j) {
+            free(name_list[j]);
+        }
+
+        char** new_name_list = realloc(name_list, nb_names * sizeof(char*));
+        if(new_name_list == NULL) {
+            return ERR_MEM;
+        }
+        float_op->arith_unit_name_list = new_name_list;
         float_op->nb_arith_names = nb_names;
     }
     free(dot_source);
@@ -603,7 +623,8 @@ auto_error_t update_arithmetic_units(project_t* project, vivado_hls_t* hls, axi_
     CHECK_PARAM(hls);
 
     char arithmetic_path[MAX_PATH_LENGTH];
-    strcpy(arithmetic_path, axi_ip->path);
+    memset(arithmetic_path, 0, sizeof(char) * MAX_PATH_LENGTH);
+    strncpy(arithmetic_path, axi_ip->path, MAX_PATH_LENGTH);
     int written = snprintf(arithmetic_path + strlen(arithmetic_path), MAX_NAME_LENGTH, "/%s_1.0/src/arithmetic_units.vhd", axi_ip->name);
     CHECK_LENGTH(written, MAX_NAME_LENGTH);
 
@@ -616,6 +637,7 @@ auto_error_t update_arithmetic_units(project_t* project, vivado_hls_t* hls, axi_
 
     uint8_t count = 0;
     char pattern[MAX_NAME_LENGTH];
+    memset(pattern, 0, sizeof(char) * MAX_NAME_LENGTH);
     regex_t reg;
     regmatch_t match[2];
 
@@ -668,6 +690,7 @@ auto_error_t update_arithmetic_units(project_t* project, vivado_hls_t* hls, axi_
             CHECK_COND_DO(err != 0, ERR_REGEX, "Regex exec failed !", regfree(&reg); free(arithmetic_source); free(sorted_by_appearance); fclose(arithmetic_file););
 
             char component_name[MAX_NAME_LENGTH];
+            memset(component_name, 0, sizeof(char) * MAX_NAME_LENGTH);
             size_t name_len = (size_t)(match[1].rm_eo - match[1].rm_so);
             strncpy(component_name, source_off + match[1].rm_so, name_len);
             component_name[name_len] = '\0';
@@ -678,12 +701,13 @@ auto_error_t update_arithmetic_units(project_t* project, vivado_hls_t* hls, axi_
             source_off += match[1].rm_so;
 
             char hdl_file_name[MAX_NAME_LENGTH];
+            memset(hdl_file_name, 0, sizeof(char) * MAX_NAME_LENGTH);
             char* last_slash = strrchr(op->hdl_path, '/');
             if(last_slash == NULL) {
-                strcpy(hdl_file_name, op->hdl_path);
+                strncpy(hdl_file_name, op->hdl_path, MAX_NAME_LENGTH);
             }
             else {
-                strcpy(hdl_file_name, last_slash + 1);
+                strncpy(hdl_file_name, last_slash + 1, MAX_NAME_LENGTH);
             }
 
             *strrchr(hdl_file_name, '.') = '\0';
@@ -743,10 +767,13 @@ auto_error_t update_latency(float_op_t* op) {
     err = regexec(&reg, tcl_script, 3, match, 0);
     CHECK_COND_DO(err != 0, ERR_REGEX, "Regex exec failed !", regfree(&reg); free(tcl_script); fclose(script_file););
 
+    regfree(&reg);
+
     offset += match[2].rm_so;
     fwrite(tcl_script, sizeof(char), (size_t)(offset - tcl_script), script_file);
 
     char latency_str[MAX_NAME_LENGTH];
+    memset(latency_str, 0, sizeof(char) * MAX_NAME_LENGTH);
     snprintf(latency_str, MAX_NAME_LENGTH, "%" PRIu8, op->latency);
 
     fwrite(latency_str, sizeof(char), strlen(latency_str), script_file);
@@ -775,8 +802,9 @@ auto_error_t update_fop_tcl(vivado_hls_t* hls) {
 
 void free_floats(vivado_hls_t* hls) {
     for(uint8_t i = 0; i < hls->nb_float_op; ++i) {
-        if(hls->float_ops[i].arith_unit_name_list != NULL) {
-            free(hls->float_ops[i].arith_unit_name_list);
+        float_op_t* op = &(hls->float_ops[i]);
+        if(op != NULL) {
+            free_str_arr(op->arith_unit_name_list, (uint8_t)(op->nb_arith_names));
         }
     }
     free(hls->float_ops);

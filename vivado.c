@@ -53,7 +53,8 @@ auto_error_t launch_script(const char* name, const char* exec_path) {
     CHECK_PARAM(exec_path);
 
     char script_path[MAX_PATH_LENGTH];
-    strncpy(script_path, exec_path, MAX_PATH_LENGTH);
+    memset(script_path, 0, sizeof(char) * MAX_PATH_LENGTH);
+    strncpy(script_path, exec_path, MAX_PATH_LENGTH - 1);
 
     FILE* vivado_input;
     vivado_input = popen("vivado -mode tcl", "w");
