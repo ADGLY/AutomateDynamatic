@@ -7,11 +7,13 @@
 #include <inttypes.h>
 #include "vivado.h"
 
-bool is_power_of_two(size_t size) {
+bool is_power_of_two(size_t size)
+{
     return (size & (size - 1)) == 0;
 }
 
-auto_error_t get_array_size(project_t* project) {
+auto_error_t get_array_size(project_t *project)
+{
     CHECK_PARAM(project);
 
     printf("How many 32bits words does an array store ?\n");
@@ -29,10 +31,10 @@ auto_error_t get_array_size(project_t* project) {
     project->array_size = array_size;
     project->array_size_ind = ind;
     return ERR_NONE;
-
 }
 
-auto_error_t create_project(project_t* project, hdl_source_t* hdl_source) {
+auto_error_t create_project(project_t *project, hdl_source_t *hdl_source)
+{
     CHECK_PARAM(project);
     CHECK_PARAM(hdl_source);
 
@@ -47,8 +49,8 @@ auto_error_t create_project(project_t* project, hdl_source_t* hdl_source) {
     return ERR_NONE;
 }
 
-
-auto_error_t launch_script(const char* name, const char* exec_path) {
+auto_error_t launch_script(const char *name, const char *exec_path)
+{
     CHECK_PARAM(name);
     CHECK_PARAM(exec_path);
 
@@ -56,7 +58,7 @@ auto_error_t launch_script(const char* name, const char* exec_path) {
     memset(script_path, 0, sizeof(char) * MAX_PATH_LENGTH);
     strncpy(script_path, exec_path, MAX_PATH_LENGTH - 1);
 
-    FILE* vivado_input;
+    FILE *vivado_input;
     vivado_input = popen("vivado -mode tcl", "w");
     CHECK_COND(vivado_input == NULL, ERR_IO, "Failed to launch Vivado !");
 
@@ -67,7 +69,8 @@ auto_error_t launch_script(const char* name, const char* exec_path) {
     return ERR_NONE;
 }
 
-auto_error_t project_free(project_t* project) {
+auto_error_t project_free(project_t *project)
+{
     CHECK_PARAM(project);
 
     CHECK_CALL(hdl_free(project->hdl_source), "hdl_free failed !");
