@@ -1,27 +1,22 @@
 #pragma once
 
-#include <stddef.h>
-#include <limits.h>
-#include <stdint.h>
-#include <stdbool.h>
 #include "error.h"
+#include <limits.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #define MAX_NAME_LENGTH NAME_MAX
 #define MAX_PATH_LENGTH PATH_MAX
 
-#define GET_SUFFIX(arr, str)         \
-    const char *str;                 \
-    if ((arr)->write && (arr)->read) \
-    {                                \
-        str = "read_write";          \
-    }                                \
-    else if ((arr)->write)           \
-    {                                \
-        str = "write";               \
-    }                                \
-    else if ((arr)->read)            \
-    {                                \
-        str = "read";                \
+#define GET_SUFFIX(arr, str)                                                   \
+    const char *str;                                                           \
+    if ((arr)->write && (arr)->read) {                                         \
+        str = "read_write";                                                    \
+    } else if ((arr)->write) {                                                 \
+        str = "write";                                                         \
+    } else if ((arr)->read) {                                                  \
+        str = "read";                                                          \
     }
 
 char *get_source(const char *path, size_t *file_size);

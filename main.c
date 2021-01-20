@@ -1,11 +1,12 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "axi_files.h"
 #include "hdl.h"
 #include "tcl.h"
 #include "vivado.h"
 #include "vivado_hls.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 //#pragma clang diagnostic push
 //#pragma clang diagnostic ignored "-Wsign-conversion"
@@ -36,8 +37,7 @@
 // xc7z020clg484-1 --> ZC702
 // xcvu9p-flgb2104-2-i --> AWS
 
-int main(void)
-{
+int main(void) {
     printf("To use this tool, you will need to have at least analyzed the cpp "
            "source file using Dynamatic so that\n");
     printf("comments are removed.\n");
@@ -105,7 +105,8 @@ int main(void)
                   "launch_script failed !", project_free(&project);
                   hls_free(&hls); free_axi(&axi_ip););
 
-    CHECK_CALL_DO(project_free(&project), "project_free failed !", hls_free(&hls);
+    CHECK_CALL_DO(project_free(&project), "project_free failed !",
+                  hls_free(&hls);
                   free_axi(&axi_ip););
     CHECK_CALL_DO(hls_free(&hls), "hls_free failed !", free_axi(&axi_ip););
     CHECK_CALL(free_axi(&axi_ip), "free_axi failed !");

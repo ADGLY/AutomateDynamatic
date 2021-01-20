@@ -1,20 +1,18 @@
 #pragma once
 
-#include <stddef.h>
-#include <stdbool.h>
-#include "utils.h"
 #include "error.h"
+#include "utils.h"
+#include <stdbool.h>
+#include <stddef.h>
 
 #define NB_BRAM_INTERFACE 5
 
-typedef struct
-{
+typedef struct {
     char name[MAX_NAME_LENGTH];
     uint16_t width;
 } hdl_in_param_t;
 
-typedef struct
-{
+typedef struct {
     char address[MAX_NAME_LENGTH];
     char ce[MAX_NAME_LENGTH];
     char we[MAX_NAME_LENGTH];
@@ -22,8 +20,7 @@ typedef struct
     char din[MAX_NAME_LENGTH];
 } bram_interface_t;
 
-typedef struct
-{
+typedef struct {
     char name[MAX_NAME_LENGTH];
     bram_interface_t read_ports;
     bram_interface_t write_ports;
@@ -32,8 +29,7 @@ typedef struct
     uint16_t width;
 } hdl_array_t;
 
-typedef struct
-{
+typedef struct {
     char top_file_path[MAX_PATH_LENGTH];
     char dir[MAX_PATH_LENGTH];
     char name[MAX_NAME_LENGTH];

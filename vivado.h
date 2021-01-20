@@ -1,12 +1,11 @@
 #pragma once
 
+#include "hdl.h"
+#include "utils.h"
 #include <stddef.h>
 #include <stdint.h>
-#include "utils.h"
-#include "hdl.h"
 
-typedef struct
-{
+typedef struct {
     char path[MAX_PATH_LENGTH];
     hdl_source_t *hdl_source;
     char name[MAX_NAME_LENGTH];
