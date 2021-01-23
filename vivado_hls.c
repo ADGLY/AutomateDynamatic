@@ -1321,8 +1321,8 @@ auto_error_t handle_faddfsub(vivado_hls_t *hls) {
         }
     }
 
-    float_op_t *new_floats =
-        realloc(hls->float_ops, (size_t)(sizeof(float_op_t) * (hls->nb_float_op + 1)));
+    float_op_t *new_floats = realloc(
+        hls->float_ops, (size_t)(sizeof(float_op_t) * (hls->nb_float_op + 1)));
     if (new_floats == NULL) {
         return ERR_MEM;
     }

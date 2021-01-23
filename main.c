@@ -29,8 +29,6 @@
 // /home/antoine/Documents/Dynamatic/Examples/matvec/hdl
 // matvec_optimized.vhd
 
-
-
 // xc7z045ffg900-2 --> ZC706
 // xc7z020clg484-1 --> ZC702
 // xcvu9p-flgb2104-2-i --> AWS

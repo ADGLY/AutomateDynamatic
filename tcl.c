@@ -816,7 +816,7 @@ auto_error_t generate_final_script(project_t *project, vivado_hls_t *hls,
     }
 
     script_func_t script_func = select_part_script(part);
-    //script_func = NULL;
+    // script_func = NULL;
     if (script_func != NULL) {
         script_func(tcl_script, project, axi_ip);
     }

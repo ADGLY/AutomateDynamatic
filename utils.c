@@ -102,24 +102,23 @@ auto_error_t get_path(char *path, const char *msg, bool must_exist) {
                         "allocate_str_arr failed !",
                         free_str_arr(path_components, allocated));
                 }
-                if(strcmp(last_comp + 1, strrchr(path, '/') + 1) == 0) {
+                if (strcmp(last_comp + 1, strrchr(path, '/') + 1) == 0) {
                     fully_resolved_path = true;
-                }
-                else {
+                } else {
                     strncpy(path_components[nb_components], last_comp,
-                        strlen(last_comp));
+                            strlen(last_comp));
                     nb_components++;
                     *last_comp = '\0';
                 }
             }
         }
-        if(nb_components >= 1) {
+        if (nb_components >= 1) {
             for (size_t i = nb_components - 1; i > 0; --i) {
                 strncat(path, path_components[i], MAX_NAME_LENGTH);
             }
             strncat(path, path_components[0], MAX_NAME_LENGTH);
         }
-        
+
         free_str_arr(path_components, allocated);
     }
 
