@@ -427,7 +427,8 @@ auto_error_t resolve_op_name(char *op_name, const char *path,
 
 auto_error_t check_file(uint8_t *count, float_op_t *floats,
                         const char *float_paths, mode_t mode,
-                        const char *fun_name, const char *file_name) {
+                        const char *fun_name, const char *file_name,
+                        bool *faddfsub) {
 
     CHECK_PARAM(count);
     CHECK_PARAM(floats);
@@ -476,6 +477,10 @@ auto_error_t check_file(uint8_t *count, float_op_t *floats,
                    "Name too long !");
 
         strncpy(op_name, file_name + match[1].rm_so, name_len);
+
+        if (strstr(op_name, "faddfsub") != NULL) {
+            *faddfsub = true;
+        }
     }
 
     // Check if it exists
@@ -492,6 +497,847 @@ auto_error_t check_file(uint8_t *count, float_op_t *floats,
         path_to_modify = op->script_path;
     }
     strncpy(path_to_modify, file_path, MAX_PATH_LENGTH);
+    return ERR_NONE;
+}
+
+float_op_t *find_faddfsub(vivado_hls_t *hls) {
+    float_op_t *op;
+    for (uint8_t i = 0; i < hls->nb_float_op; ++i) {
+        op = &(hls->float_ops[i]);
+        if (strstr(op->name, "faddfsub") != NULL) {
+            break;
+        }
+    }
+    return op;
+}
+
+void string_manip_tcl_faddfsub(float_op_t *faddfsub, char *filepath,
+                               char *old_filename, char *new_filename_fadd,
+                               char *fadd_path) {
+
+    char *last_slash = strrchr(faddfsub->script_path, '/');
+    if (last_slash == NULL) {
+        last_slash = faddfsub->script_path;
+    } else {
+        last_slash++;
+    }
+
+    memset(filepath, 0, sizeof(char) * MAX_PATH_LENGTH);
+    strncpy(filepath, faddfsub->script_path,
+            (size_t)(last_slash - faddfsub->script_path));
+
+    memset(old_filename, 0, MAX_NAME_LENGTH * sizeof(char));
+    strncpy(old_filename, last_slash, MAX_NAME_LENGTH);
+
+    char *substr = strstr(faddfsub->script_path, "faddfsub");
+    memset(new_filename_fadd, 0, sizeof(char) * MAX_NAME_LENGTH);
+    strncpy(new_filename_fadd, last_slash, (size_t)(substr - last_slash));
+    strncpy(new_filename_fadd + strlen(new_filename_fadd), substr, 4);
+    strncpy(new_filename_fadd + strlen(new_filename_fadd), substr + 8,
+            MAX_NAME_LENGTH);
+
+    memset(fadd_path, 0, sizeof(char) * MAX_PATH_LENGTH);
+    strncpy(fadd_path, filepath, MAX_PATH_LENGTH);
+    strncpy(fadd_path + strlen(fadd_path), new_filename_fadd,
+            strlen(new_filename_fadd));
+}
+
+void update_tcl_fadd(char *fadd_path, char *new_filename_fadd,
+                     char *old_filename_fadd, char *component_name_add) {
+    char *tcl_script = get_source(fadd_path, NULL);
+
+    const char *tcl_script_off = tcl_script;
+
+    memset(component_name_add, 0, MAX_NAME_LENGTH * sizeof(char));
+
+    strncpy(component_name_add, new_filename_fadd, MAX_NAME_LENGTH);
+
+    *strrchr(component_name_add, '_') = '\0';
+
+    FILE *tcl_script_file = fopen(fadd_path, "w");
+    regmatch_t match[1];
+
+    *strrchr(old_filename_fadd, '_') = '\0';
+
+    const char *str_match;
+    size_t match_len;
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &tcl_script_off, old_filename_fadd, &str_match,
+                        &match_len, false, 1);
+
+    fwrite(tcl_script_off, sizeof(char), (size_t)(match[0].rm_so),
+           tcl_script_file);
+    tcl_script_off += match[0].rm_eo + 1;
+
+    fprintf(tcl_script_file, "%s\n", component_name_add);
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &tcl_script_off, "Both", &str_match, &match_len,
+                        false, 1);
+
+    fwrite(tcl_script_off, sizeof(char), (size_t)(match[0].rm_so),
+           tcl_script_file);
+    tcl_script_off += match[0].rm_eo + 1;
+
+    fprintf(tcl_script_file, "Add ");
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &tcl_script_off, old_filename_fadd, &str_match,
+                        &match_len, false, 1);
+
+    fwrite(tcl_script_off, sizeof(char), (size_t)(match[0].rm_so),
+           tcl_script_file);
+    tcl_script_off += match[0].rm_eo + 1;
+
+    fprintf(tcl_script_file, "%s ", component_name_add);
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &tcl_script_off, old_filename_fadd, &str_match,
+                        &match_len, false, 1);
+
+    fwrite(tcl_script_off, sizeof(char), (size_t)(match[0].rm_so),
+           tcl_script_file);
+    tcl_script_off += match[0].rm_eo;
+
+    fprintf(tcl_script_file, "%s", component_name_add);
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &tcl_script_off, old_filename_fadd, &str_match,
+                        &match_len, false, 1);
+
+    fwrite(tcl_script_off, sizeof(char), (size_t)(match[0].rm_so),
+           tcl_script_file);
+    tcl_script_off += match[0].rm_eo;
+
+    fprintf(tcl_script_file, "%s", component_name_add);
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &tcl_script_off, old_filename_fadd, &str_match,
+                        &match_len, false, 1);
+
+    fwrite(tcl_script_off, sizeof(char), (size_t)(match[0].rm_so),
+           tcl_script_file);
+    tcl_script_off += match[0].rm_eo;
+
+    fprintf(tcl_script_file, "%s", component_name_add);
+    //------------------------------------------------------------------
+
+    fwrite(tcl_script_off, sizeof(char), strlen(tcl_script_off),
+           tcl_script_file);
+
+    fclose(tcl_script_file);
+
+    free((void *)tcl_script);
+}
+
+float_op_t *find_fadd(vivado_hls_t *hls) {
+    float_op_t *op_add;
+    for (uint8_t i = 0; i < hls->nb_float_op; ++i) {
+        op_add = &(hls->float_ops[i]);
+        if (strstr(op_add->name, "faddfsub") != NULL) {
+            break;
+        }
+    }
+    return op_add;
+}
+
+void string_manip_hdl_faddfsub(vivado_hls_t *hls, char *new_hdl_name,
+                               char *old_hdl_name, char *new_hdl_path) {
+    float_op_t *old_op_add = find_fadd(hls);
+    memset(new_hdl_name, 0, sizeof(char) * MAX_NAME_LENGTH);
+    memset(old_hdl_name, 0, sizeof(char) * MAX_NAME_LENGTH);
+
+    char *last_slash = strrchr(old_op_add->hdl_path, '/');
+    strncpy(old_hdl_name, last_slash + 1, strlen(last_slash) - 1);
+
+    strncpy(new_hdl_name, old_hdl_name,
+            (size_t)(strstr(old_hdl_name, "fadd") - old_hdl_name));
+    strncat(new_hdl_name, "fadd.vhd", MAX_NAME_LENGTH);
+    memset(new_hdl_path, 0, sizeof(char) * MAX_NAME_LENGTH);
+
+    strncpy(new_hdl_path, old_op_add->hdl_path,
+            (size_t)(last_slash - old_op_add->hdl_path) + 1);
+    strncpy(new_hdl_path + strlen(new_hdl_path), new_hdl_name,
+            strlen(new_hdl_name));
+}
+
+void update_hdl_fadd(float_op_t *fadd, char *old_hdl_name, char *new_hdl_name,
+                     char *old_filename_fadd, char *component_name_add) {
+    char *hdl_fadd = get_source(fadd->hdl_path, NULL);
+    const char *hdl_off = hdl_fadd;
+    FILE *hdl_fadd_file = fopen(fadd->hdl_path, "w");
+
+    regmatch_t match[1];
+    const char *str_match;
+    size_t match_len;
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &hdl_off, old_hdl_name, &str_match, &match_len,
+                        false, 1);
+
+    fwrite(hdl_off, sizeof(char), (size_t)(match[0].rm_so), hdl_fadd_file);
+    hdl_off += match[0].rm_eo + 1;
+
+    fprintf(hdl_fadd_file, "%s ", new_hdl_name);
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(
+        match, &hdl_off,
+        "opcode\\s+\\:\\s+in\\s+std_logic_vector\\(1 downto 0\\);", &str_match,
+        &match_len, false, 1);
+
+    fwrite(hdl_off, sizeof(char), (size_t)(match[0].rm_so), hdl_fadd_file);
+    hdl_off += match[0].rm_eo + 1;
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &hdl_off, old_hdl_name, &str_match, &match_len,
+                        false, 1);
+
+    fwrite(hdl_off, sizeof(char), (size_t)(match[0].rm_so), hdl_fadd_file);
+    hdl_off += match[0].rm_eo + 1;
+
+    fprintf(hdl_fadd_file, "%s ", new_hdl_name);
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &hdl_off, old_filename_fadd, &str_match,
+                        &match_len, false, 1);
+
+    fwrite(hdl_off, sizeof(char), (size_t)(match[0].rm_so), hdl_fadd_file);
+    hdl_off += match[0].rm_eo + 1;
+
+    fprintf(hdl_fadd_file, "%s ", component_name_add);
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &hdl_off,
+                        "s_axis_operation_tvalid\\s+\\:\\s+in\\s+std_logic;",
+                        &str_match, &match_len, false, 1);
+
+    fwrite(hdl_off, sizeof(char), (size_t)(match[0].rm_so), hdl_fadd_file);
+    hdl_off += match[0].rm_eo + 1;
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    // s_axis_operation_tdata\\s+\\:\\s+in\\s+std_logic_vector(7 downto 0);
+    advance_in_file_hls(match, &hdl_off,
+                        "s_axis_operation_tdata\\s+\\:\\s+in\\s+std_logic_"
+                        "vector\\(7\\s+downto\\s+0\\);",
+                        &str_match, &match_len, false, 1);
+
+    fwrite(hdl_off, sizeof(char), (size_t)(match[0].rm_so), hdl_fadd_file);
+    hdl_off += match[0].rm_eo + 1;
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &hdl_off,
+                        "signal\\s+op_tvalid\\s+\\:\\s+std_logic;", &str_match,
+                        &match_len, false, 1);
+
+    fwrite(hdl_off, sizeof(char), (size_t)(match[0].rm_so), hdl_fadd_file);
+    hdl_off += match[0].rm_eo + 1;
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(
+        match, &hdl_off,
+        "signal\\s+op_tdata\\s+\\:\\s+std_logic_vector\\(7\\s+downto\\s+0\\);",
+        &str_match, &match_len, false, 1);
+
+    fwrite(hdl_off, sizeof(char), (size_t)(match[0].rm_so), hdl_fadd_file);
+    hdl_off += match[0].rm_eo + 1;
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &hdl_off,
+                        "signal\\s+opcode_buf1\\s+\\:\\s+std_logic_vector\\("
+                        "1\\s+downto\\s+0\\);",
+                        &str_match, &match_len, false, 1);
+
+    fwrite(hdl_off, sizeof(char), (size_t)(match[0].rm_so), hdl_fadd_file);
+    hdl_off += match[0].rm_eo + 1;
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    char pattern[MAX_NAME_LENGTH];
+    snprintf(pattern, MAX_NAME_LENGTH, "component\\s+%s", old_filename_fadd);
+    advance_in_file_hls(match, &hdl_off, pattern, &str_match, &match_len, false,
+                        1);
+
+    fwrite(hdl_off, sizeof(char), (size_t)(match[0].rm_so), hdl_fadd_file);
+    hdl_off += match[0].rm_eo + 1;
+
+    fprintf(hdl_fadd_file, "component %s \n", component_name_add);
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &hdl_off,
+                        "s_axis_operation_tvalid\\s+=>\\s+op_tvalid,",
+                        &str_match, &match_len, false, 1);
+
+    fwrite(hdl_off, sizeof(char), (size_t)(match[0].rm_so), hdl_fadd_file);
+    hdl_off += match[0].rm_eo + 1;
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &hdl_off,
+                        "s_axis_operation_tdata\\s+=>\\s+op_tdata,", &str_match,
+                        &match_len, false, 1);
+
+    fwrite(hdl_off, sizeof(char), (size_t)(match[0].rm_so), hdl_fadd_file);
+    hdl_off += match[0].rm_eo + 1;
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &hdl_off, "op_tvalid\\s+<=\\s+'1';", &str_match,
+                        &match_len, false, 1);
+
+    fwrite(hdl_off, sizeof(char), (size_t)(match[0].rm_so), hdl_fadd_file);
+    hdl_off += match[0].rm_eo + 1;
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(
+        match, &hdl_off,
+        "op_tdata\\s+<=\\s+\\(\\s+\"000000\"\\s+&\\s+opcode_buf1\\);",
+        &str_match, &match_len, false, 1);
+
+    fwrite(hdl_off, sizeof(char), (size_t)(match[0].rm_so), hdl_fadd_file);
+    hdl_off += match[0].rm_eo + 1;
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &hdl_off, "opcode_buf1\\s+<=\\s+opcode;",
+                        &str_match, &match_len, false, 1);
+
+    fwrite(hdl_off, sizeof(char), (size_t)(match[0].rm_so), hdl_fadd_file);
+    hdl_off += match[0].rm_eo + 1;
+    //------------------------------------------------------------------
+    fwrite(hdl_off, sizeof(char), strlen(hdl_off), hdl_fadd_file);
+    fclose(hdl_fadd_file);
+    free((void *)hdl_fadd);
+}
+
+float_op_t *create_fadd(vivado_hls_t *hls) {
+
+    float_op_t *faddfsub = find_faddfsub(hls);
+
+    char filepath[MAX_PATH_LENGTH];
+    char old_filename_fadd[MAX_PATH_LENGTH];
+    char new_filename_fadd[MAX_PATH_LENGTH];
+    char fadd_path[MAX_PATH_LENGTH];
+
+    string_manip_tcl_faddfsub(faddfsub, filepath, old_filename_fadd,
+                              new_filename_fadd, fadd_path);
+
+    rename(faddfsub->script_path, fadd_path);
+
+    char component_name_add[MAX_NAME_LENGTH];
+    update_tcl_fadd(fadd_path, new_filename_fadd, old_filename_fadd,
+                    component_name_add);
+
+    float_op_t *new_fadd_op = calloc(1, sizeof(float_op_t));
+
+    memset(new_fadd_op->name, 0, sizeof(MAX_NAME_LENGTH) * sizeof(char));
+    strncpy(new_fadd_op->name, "fadd", MAX_NAME_LENGTH);
+
+    memset(new_fadd_op->script_path, 0, sizeof(char) * MAX_PATH_LENGTH);
+    strncpy(new_fadd_op->script_path, fadd_path, MAX_PATH_LENGTH);
+
+    char new_hdl_name[MAX_NAME_LENGTH];
+    char old_hdl_name[MAX_NAME_LENGTH];
+    char new_hdl_path[MAX_NAME_LENGTH];
+
+    string_manip_hdl_faddfsub(hls, new_hdl_name, old_hdl_name, new_hdl_path);
+
+    rename(faddfsub->hdl_path, new_hdl_path);
+
+    memset(new_fadd_op->hdl_path, 0, sizeof(char) * MAX_PATH_LENGTH);
+
+    strncpy(new_fadd_op->hdl_path, new_hdl_path, MAX_PATH_LENGTH);
+
+    *strrchr(old_hdl_name, '.') = '\0';
+    *strrchr(new_hdl_name, '.') = '\0';
+
+    update_hdl_fadd(new_fadd_op, old_hdl_name, new_hdl_name, old_filename_fadd,
+                    component_name_add);
+
+    return new_fadd_op;
+}
+
+float_op_t *create_fsub(vivado_hls_t *hls, float_op_t *fadd_op) {
+
+    char tcl_script_path[MAX_PATH_LENGTH];
+    memset(tcl_script_path, 0, sizeof(char) * MAX_PATH_LENGTH);
+
+    char *name = strrchr(fadd_op->script_path, '/') + 1;
+
+    strncpy(tcl_script_path, fadd_op->script_path,
+            (size_t)(name - fadd_op->script_path));
+
+    char tcl_script_name[MAX_NAME_LENGTH];
+    memset(tcl_script_name, 0, sizeof(char) * MAX_NAME_LENGTH);
+
+    strncpy(tcl_script_name, name, (size_t)(strstr(name, "fadd") - name));
+    snprintf(tcl_script_name + strlen(tcl_script_name), MAX_NAME_LENGTH,
+             "fsub%s", strstr(name, "fadd") + 4);
+
+    strncat(tcl_script_path, tcl_script_name, strlen(tcl_script_name));
+
+    FILE *tcl_script_file = fopen(tcl_script_path, "w");
+
+    char *tcl_script_fadd = get_source(fadd_op->script_path, NULL);
+    const char *tcl_script_off = tcl_script_fadd;
+
+    regmatch_t match[1];
+    const char *str_match;
+    size_t match_len;
+
+    //------------------------------------------------------------------
+
+    advance_in_file_hls(match, &tcl_script_off, "fadd", &str_match, &match_len,
+                        false, 1);
+
+    fwrite(tcl_script_off, sizeof(char), (size_t)(match[0].rm_so),
+           tcl_script_file);
+    tcl_script_off += match[0].rm_eo;
+    fprintf(tcl_script_file, "fsub");
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+
+    advance_in_file_hls(match, &tcl_script_off, "CONFIG\\.add_sub_value\\s+Add",
+                        &str_match, &match_len, false, 1);
+
+    fwrite(tcl_script_off, sizeof(char), (size_t)(match[0].rm_so),
+           tcl_script_file);
+    tcl_script_off += match[0].rm_eo;
+    fprintf(tcl_script_file, "CONFIG.add_sub_value Subtract");
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+
+    advance_in_file_hls(match, &tcl_script_off, "fadd", &str_match, &match_len,
+                        false, 1);
+
+    fwrite(tcl_script_off, sizeof(char), (size_t)(match[0].rm_so),
+           tcl_script_file);
+    tcl_script_off += match[0].rm_eo;
+    fprintf(tcl_script_file, "fsub");
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+
+    advance_in_file_hls(match, &tcl_script_off, "fadd", &str_match, &match_len,
+                        false, 1);
+
+    fwrite(tcl_script_off, sizeof(char), (size_t)(match[0].rm_so),
+           tcl_script_file);
+    tcl_script_off += match[0].rm_eo;
+    fprintf(tcl_script_file, "fsub");
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+
+    advance_in_file_hls(match, &tcl_script_off, "fadd", &str_match, &match_len,
+                        false, 1);
+
+    fwrite(tcl_script_off, sizeof(char), (size_t)(match[0].rm_so),
+           tcl_script_file);
+    tcl_script_off += match[0].rm_eo;
+    fprintf(tcl_script_file, "fsub");
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+
+    advance_in_file_hls(match, &tcl_script_off, "fadd", &str_match, &match_len,
+                        false, 1);
+
+    fwrite(tcl_script_off, sizeof(char), (size_t)(match[0].rm_so),
+           tcl_script_file);
+    tcl_script_off += match[0].rm_eo;
+    fprintf(tcl_script_file, "fsub");
+    //------------------------------------------------------------------
+
+    fwrite(tcl_script_off, sizeof(char), strlen(tcl_script_off),
+           tcl_script_file);
+
+    fclose(tcl_script_file);
+    free(tcl_script_fadd);
+
+    char hdl_path[MAX_PATH_LENGTH];
+    memset(hdl_path, 0, sizeof(char) * MAX_PATH_LENGTH);
+
+    name = strrchr(fadd_op->hdl_path, '/') + 1;
+
+    strncpy(hdl_path, fadd_op->hdl_path, (size_t)(name - fadd_op->hdl_path));
+
+    char hdl_name[MAX_NAME_LENGTH];
+    memset(hdl_name, 0, sizeof(char) * MAX_NAME_LENGTH);
+
+    strncpy(hdl_name, name, (size_t)(strstr(name, "fadd") - name));
+    snprintf(hdl_name + strlen(hdl_name), MAX_NAME_LENGTH, "fsub%s",
+             strstr(name, "fadd") + 4);
+
+    strncat(hdl_path, hdl_name, strlen(hdl_name));
+
+    FILE *hdl_file = fopen(hdl_path, "w");
+
+    char *hdl_fadd = get_source(fadd_op->hdl_path, NULL);
+    const char *hdl_off = hdl_fadd;
+
+    //------------------------------------------------------------------
+
+    advance_in_file_hls(match, &hdl_off, "fadd", &str_match, &match_len, false,
+                        1);
+
+    fwrite(hdl_off, sizeof(char), (size_t)(match[0].rm_so), hdl_file);
+    hdl_off += match[0].rm_eo;
+    fprintf(hdl_file, "fsub");
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+
+    advance_in_file_hls(match, &hdl_off, "fadd", &str_match, &match_len, false,
+                        1);
+
+    fwrite(hdl_off, sizeof(char), (size_t)(match[0].rm_so), hdl_file);
+    hdl_off += match[0].rm_eo;
+    fprintf(hdl_file, "fsub");
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+
+    advance_in_file_hls(match, &hdl_off, "fadd", &str_match, &match_len, false,
+                        1);
+
+    fwrite(hdl_off, sizeof(char), (size_t)(match[0].rm_so), hdl_file);
+    hdl_off += match[0].rm_eo;
+    fprintf(hdl_file, "fsub");
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+
+    advance_in_file_hls(match, &hdl_off, "fadd", &str_match, &match_len, false,
+                        1);
+
+    fwrite(hdl_off, sizeof(char), (size_t)(match[0].rm_so), hdl_file);
+    hdl_off += match[0].rm_eo;
+    fprintf(hdl_file, "fsub");
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+
+    advance_in_file_hls(match, &hdl_off, "fadd", &str_match, &match_len, false,
+                        1);
+
+    fwrite(hdl_off, sizeof(char), (size_t)(match[0].rm_so), hdl_file);
+    hdl_off += match[0].rm_eo;
+    fprintf(hdl_file, "fsub");
+    //------------------------------------------------------------------
+
+    fwrite(hdl_off, sizeof(char), strlen(hdl_off), hdl_file);
+
+    fclose(hdl_file);
+    free(hdl_fadd);
+
+    float_op_t *new_fsub_op = calloc(1, sizeof(float_op_t));
+    memset(new_fsub_op, 0, sizeof(float_op_t));
+
+    strncpy(new_fsub_op->hdl_path, hdl_path, MAX_PATH_LENGTH);
+    strncpy(new_fsub_op->script_path, tcl_script_path, MAX_PATH_LENGTH);
+    strncpy(new_fsub_op->name, "fsub", MAX_NAME_LENGTH);
+
+    return new_fsub_op;
+}
+
+auto_error_t handle_faddfsub(vivado_hls_t *hls) {
+    /*float_op_t *op;
+    for (uint8_t i = 0; i < hls->nb_float_op; ++i) {
+        op = &(hls->float_ops[i]);
+        if (strstr(op->name, "faddfsub") != NULL) {
+            break;
+        }
+    }
+    char *last_slash = strrchr(op->script_path, '/');
+    if (last_slash == NULL) {
+        last_slash = op->script_path;
+    } else {
+        last_slash++;
+    }
+    char filepath[MAX_PATH_LENGTH];
+    memset(filepath, 0, sizeof(char) * MAX_PATH_LENGTH);
+
+    strncpy(filepath, op->script_path, (size_t)(last_slash - op->script_path));
+
+    char old_filename[MAX_NAME_LENGTH];
+    memset(old_filename, 0, MAX_NAME_LENGTH * sizeof(char));
+
+    strncpy(old_filename, last_slash, MAX_NAME_LENGTH);
+
+    char *substr = strstr(op->script_path, "faddfsub");
+
+    char new_filename_fadd[MAX_NAME_LENGTH];
+    memset(new_filename_fadd, 0, sizeof(char) * MAX_NAME_LENGTH);
+
+    strncpy(new_filename_fadd, last_slash, (size_t)(substr - last_slash));
+    strncpy(new_filename_fadd + strlen(new_filename_fadd), substr, 4);
+    strncpy(new_filename_fadd + strlen(new_filename_fadd), substr + 8,
+            MAX_NAME_LENGTH);
+
+    char new_filename_fsub[MAX_NAME_LENGTH];
+    memset(new_filename_fsub, 0, sizeof(char) * MAX_NAME_LENGTH);
+
+    strncpy(new_filename_fsub, last_slash, (size_t)(substr - last_slash));
+    strncpy(new_filename_fsub + strlen(new_filename_fsub), substr + 4,
+            strlen(substr) - 4);
+
+    char fadd_path[MAX_PATH_LENGTH];
+    memset(fadd_path, 0, sizeof(char) * MAX_PATH_LENGTH);
+    strncpy(fadd_path, filepath, MAX_PATH_LENGTH);
+    strncpy(fadd_path + strlen(fadd_path), new_filename_fadd, MAX_PATH_LENGTH);
+
+    char fsub_path[MAX_PATH_LENGTH];
+    memset(fsub_path, 0, sizeof(char) * MAX_PATH_LENGTH);
+    strncpy(fsub_path, filepath, MAX_PATH_LENGTH);
+    strncpy(fsub_path + strlen(fsub_path), new_filename_fsub, MAX_PATH_LENGTH);
+
+    rename(op->script_path, fadd_path);
+
+    char *tcl_script = get_source(fadd_path, NULL);
+
+    char component_name_add[MAX_NAME_LENGTH];
+    memset(component_name_add, 0, MAX_NAME_LENGTH * sizeof(char));
+
+    strncpy(component_name_add, new_filename_fadd, MAX_NAME_LENGTH);
+
+    *strrchr(component_name_add, '_') = '\0';
+
+    FILE *tcl_script_file = fopen(fadd_path, "w");
+    regmatch_t match[1];
+
+    *strrchr(old_filename, '_') = '\0';
+
+    const char *str_match;
+    size_t match_len;
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &tcl_script, old_filename, &str_match,
+                        &match_len, false, 1);
+
+    fwrite(tcl_script, sizeof(char), (size_t)(match[0].rm_so), tcl_script_file);
+    tcl_script += match[0].rm_eo + 1;
+
+    fprintf(tcl_script_file, "%s\n", component_name_add);
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &tcl_script, old_filename, &str_match,
+                        &match_len, false, 1);
+
+    fwrite(tcl_script, sizeof(char), (size_t)(match[0].rm_so), tcl_script_file);
+    tcl_script += match[0].rm_eo + 1;
+
+    fprintf(tcl_script_file, "%s", component_name_add);
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &tcl_script, "Add_Subtract", &str_match,
+                        &match_len, false, 1);
+
+    fwrite(tcl_script, sizeof(char), (size_t)(match[0].rm_so), tcl_script_file);
+    tcl_script += match[0].rm_eo + 1;
+
+    fprintf(tcl_script_file, "Add ");
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &tcl_script, old_filename, &str_match,
+                        &match_len, false, 1);
+
+    fwrite(tcl_script, sizeof(char), (size_t)(match[0].rm_so), tcl_script_file);
+    tcl_script += match[0].rm_eo + 1;
+
+    fprintf(tcl_script_file, "%s", component_name_add);
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &tcl_script, old_filename, &str_match,
+                        &match_len, false, 1);
+
+    fwrite(tcl_script, sizeof(char), (size_t)(match[0].rm_so), tcl_script_file);
+    tcl_script += match[0].rm_eo;
+
+    fprintf(tcl_script_file, "%s", component_name_add);
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &tcl_script, old_filename, &str_match,
+                        &match_len, false, 1);
+
+    fwrite(tcl_script, sizeof(char), (size_t)(match[0].rm_so), tcl_script_file);
+    tcl_script += match[0].rm_eo;
+
+    fprintf(tcl_script_file, "%s", component_name_add);
+    //------------------------------------------------------------------
+
+    fwrite(tcl_script, sizeof(char), strlen(tcl_script), tcl_script_file);
+
+    fclose(tcl_script_file);
+    // free(tcl_script);
+
+    memset(op->name, 0, sizeof(MAX_NAME_LENGTH) * sizeof(char));
+    strncpy(op->name, "fadd", MAX_NAME_LENGTH);
+
+    memset(op->script_path, 0, sizeof(char) * MAX_PATH_LENGTH);
+    strncpy(op->script_path, fadd_path, MAX_PATH_LENGTH);
+
+    float_op_t *op_add;
+    for (uint8_t i = 0; i < hls->nb_float_op; ++i) {
+        op_add = &(hls->float_ops[i]);
+        if (strstr(op_add->name, "fadd") != NULL &&
+            strstr(op_add->name, "faddfsub") == NULL) {
+            break;
+        }
+    }
+
+    char new_hdl_name[MAX_NAME_LENGTH];
+    memset(new_hdl_name, 0, sizeof(char) * MAX_NAME_LENGTH);
+
+    char old_hdl_name[MAX_NAME_LENGTH];
+    memset(old_hdl_name, 0, sizeof(char) * MAX_NAME_LENGTH);
+
+    last_slash = strrchr(op->hdl_path, '/');
+    strncpy(old_hdl_name, last_slash + 1, strlen(last_slash) - 1);
+
+    strncpy(new_hdl_name, old_hdl_name,
+            (size_t)(strstr(old_hdl_name, "fadd") - old_hdl_name));
+    strncat(new_hdl_name, "fadd.vhd", MAX_NAME_LENGTH);
+
+    char new_hdl_path[MAX_PATH_LENGTH];
+    memset(new_hdl_path, 0, sizeof(char) * MAX_PATH_LENGTH);
+
+    strncpy(new_hdl_path, op->hdl_path,
+            (size_t)(last_slash - op->hdl_path) + 1);
+    strncpy(new_hdl_path + strlen(new_hdl_path), new_hdl_name, MAX_PATH_LENGTH);
+
+    rename(op->hdl_path, new_hdl_path);
+
+    memset(op->hdl_path, 0, sizeof(char) * MAX_PATH_LENGTH);
+
+    strncpy(op->hdl_path, new_hdl_path, MAX_PATH_LENGTH);
+
+    *strrchr(old_hdl_name, '.') = '\0';
+    *strrchr(new_hdl_name, '.') = '\0';
+
+    const char *hdl_fadd = get_source(op->hdl_path, NULL);
+
+    FILE *hdl_fadd_file = fopen(op->hdl_path, "w");
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &hdl_fadd, old_hdl_name, &str_match, &match_len,
+                        false, 1);
+
+    fwrite(hdl_fadd, sizeof(char), (size_t)(match[0].rm_so), hdl_fadd_file);
+    hdl_fadd += match[0].rm_eo + 1;
+
+    fprintf(hdl_fadd_file, "%s ", new_hdl_name);
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(
+        match, &hdl_fadd,
+        "opcode\\s+\\:\\s+in\\s+std_logic_vector\\(1 downto 0\\);", &str_match,
+        &match_len, false, 1);
+
+    fwrite(hdl_fadd, sizeof(char), (size_t)(match[0].rm_so), hdl_fadd_file);
+    hdl_fadd += match[0].rm_eo + 1;
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &hdl_fadd, old_hdl_name, &str_match, &match_len,
+                        false, 1);
+
+    fwrite(hdl_fadd, sizeof(char), (size_t)(match[0].rm_so), hdl_fadd_file);
+    hdl_fadd += match[0].rm_eo + 1;
+
+    fprintf(hdl_fadd_file, "%s ", new_hdl_name);
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &hdl_fadd, old_filename, &str_match, &match_len,
+                        false, 1);
+
+    fwrite(hdl_fadd, sizeof(char), (size_t)(match[0].rm_so), hdl_fadd_file);
+    hdl_fadd += match[0].rm_eo + 1;
+
+    fprintf(hdl_fadd_file, "%s ", component_name_add);
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &hdl_fadd,
+                        "signal\\s+dout_r\\s+\\:\\s+std_logic_vector\\(dout_"
+                        "WIDTH-1\\s+downto\\s+0\\);",
+                        &str_match, &match_len, false, 1);
+
+    fwrite(hdl_fadd, sizeof(char), (size_t)(match[0].rm_eo), hdl_fadd_file);
+    hdl_fadd += match[0].rm_eo + 1;
+
+    fprintf(hdl_fadd_file,
+            "\n\tsignal opcode\t: std_logic_vector(1 downto 0) := \"00\";\n");
+    //------------------------------------------------------------------
+
+    //------------------------------------------------------------------
+    advance_in_file_hls(match, &hdl_fadd, old_filename, &str_match, &match_len,
+                        false, 1);
+
+    fwrite(hdl_fadd, sizeof(char), (size_t)(match[0].rm_so), hdl_fadd_file);
+    hdl_fadd += match[0].rm_eo + 1;
+
+    fprintf(hdl_fadd_file, "%s ", component_name_add);
+    //------------------------------------------------------------------
+    fwrite(hdl_fadd, sizeof(char), strlen(hdl_fadd), hdl_fadd_file);
+    fclose(hdl_fadd_file);
+
+    memset(op_add->name, 0, sizeof(char) * MAX_NAME_LENGTH);*/
+
+    float_op_t *fadd_op = create_fadd(hls);
+    float_op_t *fsub_op = create_fsub(hls, fadd_op);
+
+    for (uint8_t i = 0; i < hls->nb_float_op; ++i) {
+        float_op_t *op = &(hls->float_ops[i]);
+        if (strstr(op->name, "faddfsub") != NULL) {
+            memset(op, 0, sizeof(float_op_t));
+            strcpy(op->name, fadd_op->name);
+            strcpy(op->script_path, fadd_op->script_path);
+            strcpy(op->hdl_path, fadd_op->hdl_path);
+        }
+    }
+
+    float_op_t *new_floats =
+        realloc(hls->float_ops, (size_t)(sizeof(float_op_t) * (hls->nb_float_op + 1)));
+    if (new_floats == NULL) {
+        return ERR_MEM;
+    }
+
+    hls->float_ops = new_floats;
+
+    float_op_t *op = &(new_floats[hls->nb_float_op]);
+    memset(op, 0, sizeof(float_op_t));
+    strcpy(op->name, fsub_op->name);
+    strcpy(op->script_path, fsub_op->script_path);
+    strcpy(op->hdl_path, fsub_op->hdl_path);
+    hls->nb_float_op = (uint8_t)(hls->nb_float_op + 1);
+    free(fadd_op);
+    free(fsub_op);
+
     return ERR_NONE;
 }
 
@@ -531,12 +1377,14 @@ auto_error_t update_float_op(const char *float_paths, vivado_hls_t *hls) {
             CHECK_COND(file_ext == NULL, ERR_IO, "No file ext !");
             if (strncmp(file_ext + 1, "vhd", 3) == 0) {
                 CHECK_CALL_DO(check_file(&count, floats, float_paths, HDL,
-                                         hls->fun_name, dir->d_name),
+                                         hls->fun_name, dir->d_name,
+                                         &(hls->faddfsub)),
                               "check_file failed !", closedir(d);
                               free(floats););
             } else if (strncmp(file_ext + 1, "tcl", 3) == 0) {
                 CHECK_CALL_DO(check_file(&count, floats, float_paths, TCL,
-                                         hls->fun_name, dir->d_name),
+                                         hls->fun_name, dir->d_name,
+                                         &(hls->faddfsub)),
                               "check_file failed !", closedir(d);
                               free(floats););
             }
@@ -546,6 +1394,9 @@ auto_error_t update_float_op(const char *float_paths, vivado_hls_t *hls) {
     closedir(d);
     hls->float_ops = floats;
     hls->nb_float_op = count;
+    if (hls->faddfsub) {
+        handle_faddfsub(hls);
+    }
     return ERR_NONE;
 }
 

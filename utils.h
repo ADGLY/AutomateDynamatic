@@ -21,6 +21,7 @@
 
 char *get_source(const char *path, size_t *file_size);
 void str_toupper(char *str);
+void str_tolower(char *str);
 auto_error_t get_name(char *name, const char *msg);
 auto_error_t get_path(char *path, const char *msg, bool must_exist);
 void free_str_arr(char **str_arr, uint8_t last);

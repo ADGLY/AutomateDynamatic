@@ -8,30 +8,28 @@
 #include "vivado.h"
 #include "vivado_hls.h"
 
-//#pragma clang diagnostic push
-//#pragma clang diagnostic ignored "-Wsign-conversion"
+// /home/antoine/Documents/Dynamatic/Examples/fir/hdl
+// fir_optimized.vhd
 
-// histogram_elaborated_optimized.vhd
-// /home/antoine/Documents/Dynamatic/HistogramInt/hdl
+// /home/antoine/Documents/Dynamatic/Examples/histogram/hdl
+// histogram_optimized.vhd
 
-// /home/antoine/Documents/Dynamatic/BigExamples/examples/matching/src/matching.cpp
-// /home/antoine/Documents/Dynamatic/BigExamples/examples/matching/hdl
+// /home/antoine/Documents/Dynamatic/Examples/if_loop_add/hdl
+// if_loop_add_optimized.vhd
+
+// /home/antoine/Documents/Dynamatic/Examples/if_loop_mul/hdl
+// if_loop_mul_optimized.vhd
+
+// /home/antoine/Documents/Dynamatic/Examples/matching/hdl
 // matching_optimized.vhd
 
-// /home/antoine/Documents/Dynamatic/TestBench/hdl
-// histogram_elaborated_optimized.vhd
-// /home/antoine/Documents/Dynamatic/TestBench_2/hdl
+// /home/antoine/Documents/Dynamatic/Examples/matrix_power/hdl
+// matrix_power.vhd
 
-// testbench_2_elaborated_optimized.vhd
+// /home/antoine/Documents/Dynamatic/Examples/matvec/hdl
+// matvec_optimized.vhd
 
-// /home/antoine/Documents/Dynamatic/BigExamples/examples/fir/hdl
-// fir_elaborated_optimized.vhd
 
-// /home/antoine/Documents/Dynamatic/BigExamples/examples/matrix_power/hdl
-// matrix_power_elaborated_optimized.vhd
-
-// /home/antoine/Documents/Dynamatic/Fibonacci/hdl
-// fibonacci_elaborated_optimized.vhd
 
 // xc7z045ffg900-2 --> ZC706
 // xc7z020clg484-1 --> ZC702
@@ -114,5 +112,3 @@ int main(void) {
     clean_folder();
     return 0;
 }
-
-//#pragma clang diagnostic pop

@@ -22,6 +22,7 @@ typedef struct vivado_hls_ {
     char fun_name[MAX_NAME_LENGTH];
     float_op_t *float_ops;
     uint8_t nb_float_op;
+    bool faddfsub;
 } vivado_hls_t;
 
 auto_error_t create_hls(vivado_hls_t *hls, hdl_source_t *hdl_source);
