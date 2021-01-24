@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS  += -O0 -std=gnu17 -Wall -pedantic -g
+CFLAGS  += -O0 -std=gnu17 -Wall -pedantic
 
 CFLAGS += -Wextra -Wfloat-equal -Wshadow                         \
  -Wpointer-arith -Wbad-function-cast -Wcast-align -Wwrite-strings \
