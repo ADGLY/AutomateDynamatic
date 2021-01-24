@@ -363,6 +363,10 @@ auto_error_t parse_hdl(hdl_source_t *hdl_source) {
         }
     }
 
+    if(max_width < 32) {
+        max_width = 32;
+    }
+
     hdl_source->max_param_width = max_width;
 
     return ERR_NONE;
