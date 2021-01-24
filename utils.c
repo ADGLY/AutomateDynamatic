@@ -166,8 +166,6 @@ auto_error_t allocate_str_arr(char ***str_arr, uint8_t *last) {
     return ERR_NONE;
 }
 
-//#pragma clang diagnostic push
-//#pragma clang diagnostic ignored "-Wunused-parameter"
 int unlink_cb(const char *fpath, const struct stat *sb, int typeflag,
               struct FTW *ftwbuf) {
     int rv = remove(fpath);
@@ -177,7 +175,6 @@ int unlink_cb(const char *fpath, const struct stat *sb, int typeflag,
 
     return rv;
 }
-//#pragma clang diagnostic pop
 
 void clean_folder() {
     nftw("vivado_hls", unlink_cb, 64, FTW_DEPTH | FTW_PHYS);

@@ -12,9 +12,9 @@ bool is_power_of_two(size_t size) { return (size & (size - 1)) == 0; }
 auto_error_t get_array_size(project_t *project) {
     CHECK_PARAM(project);
 
-    printf("How many 32bits words does an array store ?\n");
-    printf("The maximum is 1G and the input should be of the form 4K, 8K, ..., "
-           "1M, ..., 1G\n");
+    printf("What is the biggest array's size in bytes ?\n");
+    printf("The maximum is 1G and the minimum is 4K.\n");
+    printf("The input should be look like this : 4K, 8K, ..., 1M, ..., 1G\n");
     uint16_t array_size;
     int scanned = scanf("%" SCNu16, &array_size);
     CHECK_COND(scanned < 0 || scanned > 1 || array_size == 0 ||
