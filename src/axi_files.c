@@ -75,7 +75,7 @@ char *read_hdl_file(axi_ip_t *axi_ip, char *set_file_path,
 
     strncpy(set_file_path, file_path, MAX_PATH_LENGTH);
 
-    char *top_file = get_source(file_path, NULL);
+    char *top_file = read_file(file_path, NULL);
 
     return top_file;
 }
@@ -613,7 +613,7 @@ auto_error_t update_top_file(project_t *project, axi_ip_t *axi_ip) {
 
     CHECK_CALL(write_top_file(project, axi_ip), "write_top_file failed !");
     size_t size;
-    char *new_top_file_src = get_source("top_file.tmp", &size);
+    char *new_top_file_src = read_file("top_file.tmp", &size);
     CHECK_COND(new_top_file_src == NULL, ERR_IO, "get_source failed !");
     remove("top_file.tmp");
 
@@ -638,7 +638,7 @@ auto_error_t update_axi_file(project_t *project, axi_ip_t *axi_ip) {
     CHECK_CALL(write_axi_file(project, axi_ip), "write_axi_file failed !");
 
     size_t size;
-    char *new_axi_file_src = get_source("axi_file.tmp", &size);
+    char *new_axi_file_src = read_file("axi_file.tmp", &size);
     CHECK_COND(new_axi_file_src == NULL, ERR_IO, "get_source failed !");
     remove("axi_file.tmp");
 

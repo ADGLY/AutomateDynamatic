@@ -344,7 +344,7 @@ auto_error_t get_end_out_width(hdl_source_t *hdl_source) {
 
 auto_error_t parse_hdl(hdl_source_t *hdl_source) {
     CHECK_PARAM(hdl_source);
-    char *source = get_source(hdl_source->top_file_path, NULL);
+    char *source = read_file(hdl_source->top_file_path, NULL);
     CHECK_NULL(source, ERR_IO, "Did not manage to read source file !");
     hdl_source->source = source;
 

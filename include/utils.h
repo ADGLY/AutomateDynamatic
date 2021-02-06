@@ -20,14 +20,14 @@
     }
 
 /**
- * Takes in a path to a file and read the entirety of the file
+ * Takes in a path to a file and read the content of said file
  *
  * @param path the path to the file to be read
  * @param file_size If not NULL, will be filled with the file size
  *
  * @return the contents of the file
  **/
-char *get_source(const char *path, size_t *file_size);
+char* read_file(const char* path, size_t* file_size);
 
 /**
  * Transforms the given string into an upper case string
@@ -35,7 +35,7 @@ char *get_source(const char *path, size_t *file_size);
  * @param str the string to be transformed
  *
  **/
-void str_toupper(char *str);
+void str_toupper(char* str);
 
 /**
  * Transforms the given string into an upper case string
@@ -43,7 +43,7 @@ void str_toupper(char *str);
  * @param str the string to be transformed
  *
  **/
-void str_tolower(char *str);
+void str_tolower(char* str);
 
 /**
  * Prints a message and asks for text input
@@ -53,7 +53,7 @@ void str_tolower(char *str);
  *
  * @return an error codes
  */
-auto_error_t get_name(char *name, const char *msg);
+auto_error_t get_name(char* name, const char* msg);
 
 /**
  * Prints a message and asks for a path. The path might exist or not.
@@ -66,27 +66,27 @@ auto_error_t get_name(char *name, const char *msg);
  * @return an error code
  *
  */
-auto_error_t get_path(char *path, const char *msg, bool must_exist);
+auto_error_t get_path(char* path, const char* msg, bool must_exist);
 
 /**
  * Frees the given array of strings
  *
  * @param str_arr the string array to free
- * @param last the number of allocated elements
+ * @param nb_allocated the number of allocated elements
  *
  **/
-void free_str_arr(char **str_arr, uint8_t last);
+void free_str_arr(char** str_arr, uint8_t nb_allocated);
 
 /**
  * Allocates or reallocates a string array
  *
  * @param str_arr pointer to the soon to be allocated array
- * @param last the number of allocated strings the array
+ * @param nb_allocated the number of allocated strings the array
  *
  * @return an error code
  *
  **/
-auto_error_t allocate_str_arr(char ***str_arr, uint8_t *last);
+auto_error_t allocate_str_arr(char*** str_arr, uint8_t* nb_allocated);
 
 /**
  * Removes anything temporary created by the program

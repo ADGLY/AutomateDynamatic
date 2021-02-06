@@ -14,7 +14,6 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-#find_package(PCRE REQUIRED)
 
 add_subdirectory(src)
 

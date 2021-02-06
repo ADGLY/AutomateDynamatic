@@ -60,7 +60,7 @@ auto_error_t create_hls(vivado_hls_t *hls, hdl_source_t *hdl_source) {
     CHECK_COND(final_path == NULL && errno != ENOENT, ERR_PATH,
                "Could not resolve absolute path !");
 
-    char *source_file = get_source(hls->source_path, NULL);
+    char *source_file = read_file(hls->source_path, NULL);
     CHECK_NULL(source_file, ERR_IO, "Could not read the C/C++ source file !");
     hls->hls_source = source_file;
     return ERR_NONE;
@@ -382,7 +382,7 @@ auto_error_t resolve_op_name(char *op_name, const char *path,
                              const char *fun_name) {
     CHECK_PARAM(path);
 
-    char *fop_file = get_source(path, NULL);
+    char *fop_file = read_file(path, NULL);
     CHECK_NULL(fop_file, ERR_IO, "Could not read fop file !");
 
     regex_t reg;
@@ -544,7 +544,7 @@ void string_manip_tcl_faddfsub(float_op_t *faddfsub, char *filepath,
 
 void update_tcl_fadd(char *fadd_path, char *new_filename_fadd,
                      char *old_filename_fadd, char *component_name_add) {
-    char *tcl_script = get_source(fadd_path, NULL);
+    char *tcl_script = read_file(fadd_path, NULL);
 
     const char *tcl_script_off = tcl_script;
 
@@ -669,7 +669,7 @@ void string_manip_hdl_faddfsub(vivado_hls_t *hls, char *new_hdl_name,
 
 void update_hdl_fadd(float_op_t *fadd, char *old_hdl_name, char *new_hdl_name,
                      char *old_filename_fadd, char *component_name_add) {
-    char *hdl_fadd = get_source(fadd->hdl_path, NULL);
+    char *hdl_fadd = read_file(fadd->hdl_path, NULL);
     const char *hdl_off = hdl_fadd;
     FILE *hdl_fadd_file = fopen(fadd->hdl_path, "w");
 
@@ -893,7 +893,7 @@ float_op_t *create_fsub(vivado_hls_t *hls, float_op_t *fadd_op) {
 
     FILE *tcl_script_file = fopen(tcl_script_path, "w");
 
-    char *tcl_script_fadd = get_source(fadd_op->script_path, NULL);
+    char *tcl_script_fadd = read_file(fadd_op->script_path, NULL);
     const char *tcl_script_off = tcl_script_fadd;
 
     regmatch_t match[1];
@@ -990,7 +990,7 @@ float_op_t *create_fsub(vivado_hls_t *hls, float_op_t *fadd_op) {
 
     FILE *hdl_file = fopen(hdl_path, "w");
 
-    char *hdl_fadd = get_source(fadd_op->hdl_path, NULL);
+    char *hdl_fadd = read_file(fadd_op->hdl_path, NULL);
     const char *hdl_off = hdl_fadd;
 
     //------------------------------------------------------------------
@@ -1190,7 +1190,7 @@ auto_error_t open_dot_file(vivado_hls_t *hls, hdl_source_t *hdl) {
     CHECK_COND(max > MAX_PATH_LENGTH, ERR_NAME_TOO_LONG, "Name too long !");
     strncat(dot_file_path, dot_file_name, max);
 
-    char *dot_source = get_source(dot_file_path, NULL);
+    char *dot_source = read_file(dot_file_path, NULL);
     CHECK_NULL(dot_source, ERR_IO, "Couldn't read dot_source");
 
     regex_t reg;
@@ -1295,7 +1295,7 @@ auto_error_t update_arithmetic_units(project_t *project, vivado_hls_t *hls,
                  "/%s_1.0/src/arithmetic_units.vhd", axi_ip->name);
     CHECK_LENGTH(written, MAX_NAME_LENGTH);
 
-    char *arithmetic_source = get_source(arithmetic_path, NULL);
+    char *arithmetic_source = read_file(arithmetic_path, NULL);
     CHECK_NULL(arithmetic_source, ERR_IO, "Could not read arithmetic source !");
     char *source_off = arithmetic_source;
 
@@ -1446,7 +1446,7 @@ auto_error_t update_arithmetic_units(project_t *project, vivado_hls_t *hls,
 
 auto_error_t update_latency(float_op_t *op) {
     CHECK_PARAM(op);
-    char *tcl_script = get_source(op->script_path, NULL);
+    char *tcl_script = read_file(op->script_path, NULL);
     CHECK_NULL(tcl_script, ERR_IO, "Could not read tcl_script !");
 
     // TODO: Do it in a temp file
