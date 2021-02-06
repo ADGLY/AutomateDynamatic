@@ -7,3 +7,6 @@ histogram_elaborated_optimized.vhd
 main
 *.tcl
 *.vhd
+Backup/*
+Code/*
+Examples/*

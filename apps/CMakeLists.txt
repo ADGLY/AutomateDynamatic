@@ -1,0 +1,4 @@
+add_executable(automate_dynamatic_app main.c)
+target_compile_features(automate_dynamatic_app PRIVATE c_std_11)
+target_link_libraries(automate_dynamatic_app PRIVATE automate_dynamatic_library pcre pcreposix)
+target_compile_options(automate_dynamatic_app PRIVATE ${WARNINGS_LIST})
