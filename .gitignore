@@ -1,5 +1,4 @@
 main
-histogram_elaborated_optimized.vhd
 .vscode/*
 .Xil/*
 *.log
@@ -10,3 +9,10 @@ main
 Backup/*
 Code/*
 Examples/*
+CMakeCache.txt
+*/CMakeFiles
+CMakeFiles
+Makefile
+*.cmake
+automate_dynamatic_app
+*.a
