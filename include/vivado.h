@@ -10,21 +10,22 @@
  **/
 typedef struct _project {
     char path[MAX_PATH_LENGTH];
-    hdl_source_t *hdl_source;
+    hdl_info_t *hdl_info;
     char name[MAX_NAME_LENGTH];
     char array_size_ind;
     uint16_t array_size;
+    char exec_path[MAX_PATH_LENGTH];
 } project_t;
 
 /**
  * Initializes a porject struct
  *
  * @param project
- * @param hdl_sources
+ * @param hdl_infos
  *
  * @return an error code
  **/
-auto_error_t create_project(project_t *project, hdl_source_t *hdl_source);
+auto_error_t create_project(project_t *project, hdl_info_t *hdl_info);
 
 /**
  * Launch Vivado and sources the script given as argument

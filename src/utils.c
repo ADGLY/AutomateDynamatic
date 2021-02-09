@@ -59,7 +59,7 @@ char* remove_leading_whitespace(char* str) {
 
 void remove_trailing_whitespace(char* str) {
 	if (strlen(str) == 0) {
-		return str;
+		return;
 	}
 	char* str_temp = str + strlen(str) - 1;
 	while (strlen(str) > 0 && isspace(*str_temp)) {
@@ -84,7 +84,7 @@ auto_error_t get_str(char* str, const char* msg, int length) {
 
 	printf("%s\n", msg);
 
-	char* str_temp = malloc(length);
+	char* str_temp = malloc((size_t)length);
 	if (str_temp == NULL) {
 		return ERR_MEM;
 	}
@@ -94,7 +94,7 @@ auto_error_t get_str(char* str, const char* msg, int length) {
 		"There was an error while reading the input !");
 	remove_trailing_whitespace(str_temp);
 	char* no_lead_space = remove_leading_whitespace(str_temp);
-	strncpy(str, no_lead_space, length);
+	strncpy(str, no_lead_space, (size_t)length);
 	free(str_temp);
 
 	return ERR_NONE;

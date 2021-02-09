@@ -33,7 +33,7 @@ auto_error_t generate_MAIN_script(project_t *project, const char *part) {
     char ip_script_path[MAX_PATH_LENGTH];
     memset(ip_script_path, 0, MAX_PATH_LENGTH * sizeof(char));
 
-    strncpy(ip_script_path, project->hdl_source->exec_path, MAX_PATH_LENGTH);
+    strncpy(ip_script_path, project->exec_path, MAX_PATH_LENGTH);
 
     CHECK_COND_DO(strlen(ip_script_path) + strlen("/generate_axi_ip.tcl") + 1 >=
                       MAX_PATH_LENGTH,
@@ -52,7 +52,7 @@ auto_error_t generate_MAIN_script(project_t *project, const char *part) {
 auto_error_t generate_AXI_script(project_t *project, axi_ip_t *axi_ip) {
     CHECK_PARAM(project);
     CHECK_PARAM(axi_ip);
-    CHECK_PARAM(project->hdl_source);
+    CHECK_PARAM(project->hdl_info);
 
     strncpy(axi_ip->interface_name, "CSR", MAX_NAME_LENGTH);
 
@@ -98,7 +98,7 @@ auto_error_t generate_AXI_script(project_t *project, axi_ip_t *axi_ip) {
     memset(files_to_add, 0, sizeof(files_to_add));
 
     DIR *d;
-    d = opendir(project->hdl_source->dir);
+    d = opendir(project->hdl_info->dir);
     CHECK_COND_DO(d == NULL, ERR_IO, "Could not open dir !",
                   fclose(tcl_script););
 
@@ -122,10 +122,10 @@ auto_error_t generate_AXI_script(project_t *project, axi_ip_t *axi_ip) {
 
     for (int i = 0; i < nb_files; ++i) {
         if (i == nb_files - 1) {
-            fprintf(tcl_script, "%s/%s", project->hdl_source->dir,
+            fprintf(tcl_script, "%s/%s", project->hdl_info->dir,
                     files_to_add[i]);
         } else {
-            fprintf(tcl_script, "%s/%s ", project->hdl_source->dir,
+            fprintf(tcl_script, "%s/%s ", project->hdl_info->dir,
                     files_to_add[i]);
         }
     }
@@ -145,7 +145,7 @@ auto_error_t generate_AXI_script(project_t *project, axi_ip_t *axi_ip) {
     return ERR_NONE;
 }
 
-auto_error_t generate_adapters(FILE *tcl_script, hdl_source_t *hdl,
+auto_error_t generate_adapters(FILE *tcl_script, const char* exec_path,
                                hdl_array_t *array, const char *suffix,
                                size_t array_size) {
 
@@ -227,7 +227,7 @@ auto_error_t generate_adapters(FILE *tcl_script, hdl_source_t *hdl,
     fprintf(tcl_script,
             "import_files -norecurse {%s/write_enb_adapter%s.vhd "
             "%s/address_adapter%s.vhd}\n",
-            hdl->exec_path, suffix, hdl->exec_path, suffix);
+            exec_path, suffix, exec_path, suffix);
     fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
     fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
 
@@ -532,7 +532,7 @@ auto_error_t create_mem_interface(size_t array_size,
 }
 
 auto_error_t generate_memory(FILE *tcl_script, hdl_array_t *arr,
-                             axi_ip_t *axi_ip, hdl_source_t *hdl,
+                             axi_ip_t *axi_ip, const char* exec_path,
                              size_t array_size) {
     CHECK_PARAM(tcl_script);
     CHECK_PARAM(arr);
@@ -580,7 +580,7 @@ auto_error_t generate_memory(FILE *tcl_script, hdl_array_t *arr,
                                arr->name, "read_write");
         CHECK_LENGTH(written, MAX_NAME_LENGTH);
 
-        CHECK_CALL_DO(generate_adapters(tcl_script, hdl, arr, filename_suffix,
+        CHECK_CALL_DO(generate_adapters(tcl_script, exec_path, arr, filename_suffix,
                                         array_size),
                       "generate_adapters failed !", fclose(tcl_script););
 
@@ -593,7 +593,7 @@ auto_error_t generate_memory(FILE *tcl_script, hdl_array_t *arr,
 
         fprintf(tcl_script,
                 "import_files -norecurse {%s/mem_interface%s.vhd}\n",
-                hdl->exec_path, filename_suffix);
+                exec_path, filename_suffix);
         fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
         fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
 
@@ -672,7 +672,7 @@ auto_error_t generate_memory(FILE *tcl_script, hdl_array_t *arr,
                                arr->name, "write");
         CHECK_LENGTH(written, MAX_NAME_LENGTH);
 
-        CHECK_CALL_DO(generate_adapters(tcl_script, hdl, arr, filename_suffix,
+        CHECK_CALL_DO(generate_adapters(tcl_script, exec_path, arr, filename_suffix,
                                         array_size),
                       "generate_adapters failed !", fclose(tcl_script););
         CHECK_CALL(generate_memory_interface(tcl_script, axi_ip, arr->name,
@@ -685,7 +685,7 @@ auto_error_t generate_memory(FILE *tcl_script, hdl_array_t *arr,
                                arr->name, "read");
         CHECK_LENGTH(written, MAX_NAME_LENGTH);
 
-        CHECK_CALL_DO(generate_adapters(tcl_script, hdl, arr, filename_suffix,
+        CHECK_CALL_DO(generate_adapters(tcl_script, exec_path, arr, filename_suffix,
                                         array_size),
                       "generate_adapters failed !", fclose(tcl_script););
         CHECK_CALL(generate_memory_interface(tcl_script, axi_ip, arr->name,
@@ -700,8 +700,8 @@ auto_error_t generate_memory(FILE *tcl_script, hdl_array_t *arr,
 auto_error_t generate_final_script(project_t *project, vivado_hls_t *hls,
                                    axi_ip_t *axi_ip, const char *part) {
     CHECK_PARAM(project);
-    CHECK_PARAM(project->hdl_source);
-    CHECK_PARAM(project->hdl_source->arrays);
+    CHECK_PARAM(project->hdl_info);
+    CHECK_PARAM(project->hdl_info->arrays);
     CHECK_PARAM(hls);
 
     FILE *tcl_script = fopen("final_script.tcl", "w");
@@ -808,10 +808,10 @@ auto_error_t generate_final_script(project_t *project, vivado_hls_t *hls,
     }
     array_size = array_size << ind_to_num;
 
-    for (size_t i = 0; i < project->hdl_source->nb_arrays; ++i) {
+    for (size_t i = 0; i < project->hdl_info->nb_arrays; ++i) {
         CHECK_CALL_DO(generate_memory(tcl_script,
-                                      &(project->hdl_source->arrays[i]), axi_ip,
-                                      project->hdl_source, array_size),
+                                      &(project->hdl_info->arrays[i]), axi_ip,
+                                      project->exec_path, array_size),
                       "generate_memory failed !", fclose(tcl_script););
     }
 

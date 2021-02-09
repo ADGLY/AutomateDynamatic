@@ -35,22 +35,22 @@ typedef struct vivado_hls_ {
  * Initializes a vivado_hls_t struct
  *
  * @param hls
- * @param hdl_source
+ * @param hdl_info
  *
  * @return an error code
  **/
-auto_error_t create_hls(vivado_hls_t *hls, hdl_source_t *hdl_source);
+auto_error_t create_hls(vivado_hls_t *hls, hdl_info_t *hdl_info);
 
 /**
  * Parses the C/C++ source file. This will, for each array, detect if is read
  * only, write only or read and write
  *
  * @param hls
- * @param hdl_source
+ * @param hdl_info
  *
  * @return an error code
  **/
-auto_error_t parse_hls(vivado_hls_t *hls, hdl_source_t *hdl_source);
+auto_error_t parse_hls(vivado_hls_t *hls, hdl_info_t *hdl_info);
 
 /**
  * Launches VivadoHLS and source the HLS tcl script

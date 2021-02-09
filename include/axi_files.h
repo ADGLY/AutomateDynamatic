@@ -51,7 +51,7 @@ auto_error_t read_axi_files(axi_ip_t *axi_ip);
  * Update the two AXI files. In the top file : instantiates the accelerator
  * expose the memory interface. In the AXI file, do the register mapping
  *
- * @param project Used to retrieve the hdl_source
+ * @param project Used to retrieve the hdl_info
  * @param axi_ip Used to get the path and content of the AXI IP files
  *
  * @return an error code

@@ -6,6 +6,7 @@
 #include <string.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 bool is_power_of_two(size_t size) { return (size & (size - 1)) == 0; }
 
@@ -35,12 +36,12 @@ auto_error_t get_array_size(project_t *project) {
     return ERR_NONE;
 }
 
-auto_error_t create_project(project_t *project, hdl_source_t *hdl_source) {
+auto_error_t create_project(project_t *project, hdl_info_t *hdl_info) {
     CHECK_PARAM(project);
-    CHECK_PARAM(hdl_source);
+    CHECK_PARAM(hdl_info);
 
     memset(project, 0, sizeof(project_t));
-    project->hdl_source = hdl_source;
+    project->hdl_info = hdl_info;
 
     CHECK_CALL(get_path(project->path,
                         "What is the path of the Vivado project ?", false),
@@ -50,6 +51,9 @@ auto_error_t create_project(project_t *project, hdl_source_t *hdl_source) {
         "get_name failed !");
 
     CHECK_CALL(get_array_size(project), "get_array_size failed !");
+
+    char* result = getcwd(project->exec_path, MAX_PATH_LENGTH);
+    CHECK_COND(result == NULL, ERR_IO, "getcwd error !");
 
     return ERR_NONE;
 }
@@ -76,6 +80,6 @@ auto_error_t launch_script(const char *name, const char *exec_path) {
 auto_error_t project_free(project_t *project) {
     CHECK_PARAM(project);
 
-    CHECK_CALL(hdl_free(project->hdl_source), "hdl_free failed !");
+    CHECK_CALL(hdl_free(project->hdl_info), "hdl_free failed !");
     return ERR_NONE;
 }

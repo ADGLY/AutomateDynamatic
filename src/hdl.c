@@ -14,78 +14,69 @@ static const char *const read_ports[NB_BRAM_INTERFACE] = {
     "_address1", "_ce1", "_we1", "_dout1", "_din1"};
 
 
-auto_error_t hdl_create(hdl_source_t* hdl_source) {
-    CHECK_PARAM(hdl_source);
+auto_error_t hdl_create(hdl_info_t* hdl_info) {
+    CHECK_PARAM(hdl_info);
 
-    memset(hdl_source, 0, sizeof(hdl_source_t));
+    memset(hdl_info, 0, sizeof(hdl_info_t));
 
     auto_error_t err =
-        get_path(hdl_source->dir,
+        get_path(hdl_info->dir,
             "What is the directory of the Dynamatic output (hdl) ?", true);
     while (err == ERR_IO) {
         fprintf(stderr,
             "The path does not exist. Please enter a valid path !\n");
-        err = get_path(hdl_source->dir,
+        err = get_path(hdl_info->dir,
             "What is the directory of the Dynamatic output (hdl) ?",
             true);
     }
 
-    CHECK_CALL(get_name(hdl_source->top_file_name,
+    CHECK_CALL(get_name(hdl_info->top_file_name,
         "What is the name of the top file ?"),
         "get_name failed !");
 
-    strncpy(hdl_source->top_file_path, hdl_source->dir, MAX_PATH_LENGTH);
+    strncpy(hdl_info->top_file_path, hdl_info->dir, MAX_PATH_LENGTH);
 
-    
-    hdl_source->top_file_path[strlen(hdl_source->dir)] = '/';
-    if (strlen(hdl_source->top_file_name) + strlen(hdl_source->dir) + 2 >=
-        MAX_PATH_LENGTH) {
-        fprintf(stderr, "Name too long !\n");
-    }
-    CHECK_COND((size_t)(MAX_PATH_LENGTH - strlen(hdl_source->dir) - 1) >
-        (size_t)MAX_PATH_LENGTH ||
-        MAX_PATH_LENGTH - strlen(hdl_source->dir) - 1 <
-        strlen(hdl_source->top_file_name),
-        ERR_NAME_TOO_LONG, "Name too long !");
-    strncpy(hdl_source->top_file_path + strlen(hdl_source->dir) + 1,
-        hdl_source->top_file_name,
-        MAX_PATH_LENGTH - strlen(hdl_source->dir) - 1);
+    //2 for the added '/' and the null byte
+    CHECK_COND(strlen(hdl_info->dir) + strlen(hdl_info->top_file_name) + 2 > MAX_PATH_LENGTH, ERR_NAME_TOO_LONG, "");
+    hdl_info->top_file_path[strlen(hdl_info->dir)] = '/';
+    strcat(hdl_info->top_file_path, hdl_info->top_file_name);
+
     return ERR_NONE;
 }
 
 
-auto_error_t get_simple_info(hdl_source_t *hdl_source, const char *pattern,
+auto_error_t get_simple_info(hdl_info_t *hdl_info, const char *pattern,
                              regmatch_t *match, size_t nmatch) {
-    CHECK_PARAM(hdl_source);
-    CHECK_PARAM(hdl_source->source);
+    CHECK_PARAM(hdl_info);
+    CHECK_PARAM(hdl_info->source);
 
     regex_t reg;
     int err = regcomp(&reg, pattern, REG_EXTENDED);
     CHECK_COND(err != 0, ERR_REGEX, "Reg compile error !");
-    err = regexec(&reg, hdl_source->source, nmatch, (regmatch_t *)match, 0);
+    err = regexec(&reg, hdl_info->source, nmatch, (regmatch_t *)match, 0);
     CHECK_COND_DO(err != 0, ERR_REGEX, "Reg exec error !", regfree(&reg););
     regfree(&reg);
 
     return ERR_NONE;
 }
 
-auto_error_t get_end_of_ports_decl(hdl_source_t *hdl_source) {
+auto_error_t get_end_of_ports_decl(hdl_info_t *hdl_info) {
     regmatch_t match[1];
-    CHECK_CALL(get_simple_info(hdl_source, "end;", match, 1),
+    CHECK_CALL(get_simple_info(hdl_info, "end;", match, 1),
                "get_simple_info failed !");
-    hdl_source->end_of_ports_decl = (size_t)match[0].rm_eo;
+    hdl_info->end_of_ports_decl = (size_t)match[0].rm_eo;
 
     return ERR_NONE;
 }
 
-auto_error_t get_entity_name(hdl_source_t *hdl_source) {
+auto_error_t get_entity_name(hdl_info_t *hdl_info) {
     regmatch_t match[2];
-    CHECK_CALL(get_simple_info(hdl_source,
+    CHECK_CALL(get_simple_info(hdl_info,
                                "entity[[:space:]]*(\\w+)[[:space:]]*is", match,
                                2),
                "get_simple_info failed !");
     CHECK_LENGTH((size_t)(match[1].rm_eo - match[1].rm_so), MAX_NAME_LENGTH);
-    strncpy(hdl_source->name, hdl_source->source + match[1].rm_so,
+    strncpy(hdl_info->name, hdl_info->source + match[1].rm_so,
             (size_t)(match[1].rm_eo - match[1].rm_so));
 
     return ERR_NONE;
@@ -106,20 +97,20 @@ auto_error_t iterate_hdl(regex_t *reg, const char **source_off,
     return ERR_NONE;
 }
 
-auto_error_t get_arrays(hdl_source_t *hdl_source) {
-    CHECK_PARAM(hdl_source);
-    CHECK_PARAM(hdl_source->source);
+auto_error_t get_arrays(hdl_info_t *hdl_info) {
+    CHECK_PARAM(hdl_info);
+    CHECK_PARAM(hdl_info->source);
 
     regex_t reg;
     regmatch_t match[3];
-    const char *source_off = hdl_source->source;
+    const char *source_off = hdl_info->source;
 
     size_t alloc_size = 10;
     hdl_array_t *arrays = calloc(alloc_size, sizeof(hdl_array_t));
     CHECK_NULL(arrays, ERR_MEM, "Failed to allocate memory for arrays !");
     size_t array_count = 0;
 
-    size_t end_of_port = hdl_source->end_of_ports_decl;
+    size_t end_of_port = hdl_info->end_of_ports_decl;
 
     int err = regcomp(&reg,
                       "(\\w+)_din1[[:space:]]*\\:[[:space:]]*in[[:space:]]*std_"
@@ -136,7 +127,7 @@ auto_error_t get_arrays(hdl_source_t *hdl_source) {
 
     size_t end_arrays = 0;
 
-    while ((size_t)(source_off - hdl_source->source) <= end_of_port &&
+    while ((size_t)(source_off - hdl_info->source) <= end_of_port &&
            err == 0) {
 
         CHECK_COND_DO((size_t)(match[1].rm_eo - match[1].rm_so) >=
@@ -170,24 +161,24 @@ auto_error_t get_arrays(hdl_source_t *hdl_source) {
             arrays = new_arrays;
         }
 
-        end_arrays = (size_t)(source_off - hdl_source->source);
+        end_arrays = (size_t)(source_off - hdl_info->source);
 
         CHECK_CALL_DO(iterate_hdl(&reg, &source_off, match, &str_match,
                                   &str_match_len, &err, 3),
                       "iterate_hdl_failed !", free((void *)arrays););
     }
     if (array_count == 0) {
-        hdl_source->arrays = NULL;
-        hdl_source->nb_arrays = array_count;
+        hdl_info->arrays = NULL;
+        hdl_info->nb_arrays = array_count;
     } else {
         hdl_array_t *new_arrays =
             realloc(arrays, array_count * sizeof(hdl_array_t));
         CHECK_COND_DO(new_arrays == NULL, ERR_MEM, "Failed to realloc !",
                       regfree(&reg);
                       free(arrays));
-        hdl_source->arrays = new_arrays;
-        hdl_source->nb_arrays = array_count;
-        hdl_source->end_arrays = end_arrays;
+        hdl_info->arrays = new_arrays;
+        hdl_info->nb_arrays = array_count;
+        hdl_info->end_arrays = end_arrays;
     }
     regfree(&reg);
     return ERR_NONE;
@@ -232,12 +223,12 @@ auto_error_t fill_interfaces(bram_interface_t *read_interface,
     return ERR_NONE;
 }
 
-auto_error_t fill_arrays_ports(hdl_source_t *hdl_source) {
-    CHECK_PARAM(hdl_source);
-    CHECK_PARAM(hdl_source->arrays);
+auto_error_t fill_arrays_ports(hdl_info_t *hdl_info) {
+    CHECK_PARAM(hdl_info);
+    CHECK_PARAM(hdl_info->arrays);
 
-    for (size_t i = 0; i < hdl_source->nb_arrays; ++i) {
-        hdl_array_t *array = &(hdl_source->arrays[i]);
+    for (size_t i = 0; i < hdl_info->nb_arrays; ++i) {
+        hdl_array_t *array = &(hdl_info->arrays[i]);
         const char *arr_name = array->name;
         CHECK_CALL(fill_interfaces(&(array->read_ports), &(array->write_ports),
                                    arr_name),
@@ -246,18 +237,18 @@ auto_error_t fill_arrays_ports(hdl_source_t *hdl_source) {
     return ERR_NONE;
 }
 
-auto_error_t get_params(hdl_source_t *hdl_source) {
-    CHECK_PARAM(hdl_source);
-    CHECK_PARAM(hdl_source->source);
+auto_error_t get_params(hdl_info_t *hdl_info) {
+    CHECK_PARAM(hdl_info);
+    CHECK_PARAM(hdl_info->source);
 
     regex_t reg;
     regmatch_t match[3];
-    const char *source_off = hdl_source->source + hdl_source->end_arrays;
+    const char *source_off = hdl_info->source + hdl_info->end_arrays;
     size_t alloc_size = 10;
     hdl_in_param_t *params = calloc(alloc_size, sizeof(hdl_in_param_t));
     CHECK_NULL(params, ERR_MEM, "Failed to alloc for params !");
     size_t param_count = 0;
-    size_t end_of_port = hdl_source->end_of_ports_decl;
+    size_t end_of_port = hdl_info->end_of_ports_decl;
 
     int err = regcomp(&reg,
                       "(\\w+)_din[[:space:]]*\\:[[:space:]]*in[[:space:]]*std_"
@@ -271,7 +262,7 @@ auto_error_t get_params(hdl_source_t *hdl_source) {
                               &str_match_len, &err, 3),
                   "iterate_hdl_failed !", free((void *)params););
 
-    while ((size_t)(source_off - hdl_source->source) <= end_of_port &&
+    while ((size_t)(source_off - hdl_info->source) <= end_of_port &&
            err == 0) {
         size_t name_len = (size_t)(match[1].rm_eo - match[1].rm_so);
         CHECK_CALL_DO(name_len >= MAX_NAME_LENGTH, "Name too long !",
@@ -308,8 +299,8 @@ auto_error_t get_params(hdl_source_t *hdl_source) {
                       "iterate_hdl_failed !", free((void *)params););
     }
     if (param_count == 0) {
-        hdl_source->params = NULL;
-        hdl_source->nb_params = param_count;
+        hdl_info->params = NULL;
+        hdl_info->nb_params = param_count;
         free(params);
     } else {
         hdl_in_param_t *new_params =
@@ -317,16 +308,16 @@ auto_error_t get_params(hdl_source_t *hdl_source) {
         CHECK_COND_DO(new_params == NULL, ERR_MEM,
                       "Realloc failed for params !", regfree(&reg);
                       free(params));
-        hdl_source->params = new_params;
-        hdl_source->nb_params = param_count;
+        hdl_info->params = new_params;
+        hdl_info->nb_params = param_count;
     }
     regfree(&reg);
     return ERR_NONE;
 }
 
-auto_error_t get_end_out_width(hdl_source_t *hdl_source) {
+auto_error_t get_end_out_width(hdl_info_t *hdl_info) {
     regmatch_t match[2];
-    CHECK_CALL(get_simple_info(hdl_source,
+    CHECK_CALL(get_simple_info(hdl_info,
                                "end_out[[:space:]]*:[[:space:]]*out[[:space:]]*"
                                "std_logic_vector[[:space:]]*\\(([[:digit:]]+)",
                                match, 2),
@@ -337,30 +328,30 @@ auto_error_t get_end_out_width(hdl_source_t *hdl_source) {
     size_t len = (size_t)(match[1].rm_eo - match[1].rm_so);
     CHECK_LENGTH(len - 1, MAX_NAME_LENGTH);
 
-    strncpy(width, hdl_source->source + match[1].rm_so, len);
+    strncpy(width, hdl_info->source + match[1].rm_so, len);
     width[len] = '\0';
-    hdl_source->end_out_width = (uint16_t)(strtoll(width, NULL, 10) + 1);
+    hdl_info->end_out_width = (uint16_t)(strtoll(width, NULL, 10) + 1);
     return ERR_NONE;
 }
 
-auto_error_t parse_hdl(hdl_source_t *hdl_source) {
-    CHECK_PARAM(hdl_source);
-    char *source = read_file(hdl_source->top_file_path, NULL);
+auto_error_t parse_hdl(hdl_info_t *hdl_info) {
+    CHECK_PARAM(hdl_info);
+    char *source = read_file(hdl_info->top_file_path, NULL);
     CHECK_NULL(source, ERR_IO, "Did not manage to read source file !");
-    hdl_source->source = source;
+    hdl_info->source = source;
 
-    CHECK_CALL(get_end_of_ports_decl(hdl_source),
+    CHECK_CALL(get_end_of_ports_decl(hdl_info),
                "get_end_of_ports_decl failed !");
-    CHECK_CALL(get_end_out_width(hdl_source), "get_end_out_width failed !");
-    CHECK_CALL(get_entity_name(hdl_source), "get_entity_name failed !");
-    CHECK_CALL(get_arrays(hdl_source), "get_arrays failed !");
-    CHECK_CALL(fill_arrays_ports(hdl_source), "fill_arrays_ports failed !");
-    CHECK_CALL(get_params(hdl_source), "get_params failed !");
+    CHECK_CALL(get_end_out_width(hdl_info), "get_end_out_width failed !");
+    CHECK_CALL(get_entity_name(hdl_info), "get_entity_name failed !");
+    CHECK_CALL(get_arrays(hdl_info), "get_arrays failed !");
+    CHECK_CALL(fill_arrays_ports(hdl_info), "fill_arrays_ports failed !");
+    CHECK_CALL(get_params(hdl_info), "get_params failed !");
 
-    uint16_t max_width = hdl_source->end_out_width;
-    for (size_t i = 0; i < hdl_source->nb_params; ++i) {
-        if (hdl_source->params[i].width > max_width) {
-            max_width = hdl_source->params[i].width;
+    uint16_t max_width = hdl_info->end_out_width;
+    for (size_t i = 0; i < hdl_info->nb_params; ++i) {
+        if (hdl_info->params[i].width > max_width) {
+            max_width = hdl_info->params[i].width;
         }
     }
 
@@ -368,24 +359,24 @@ auto_error_t parse_hdl(hdl_source_t *hdl_source) {
         max_width = 32;
     }
 
-    hdl_source->max_param_width = max_width;
+    hdl_info->max_param_width = max_width;
 
     return ERR_NONE;
 }
 
-auto_error_t hdl_free(hdl_source_t *hdl_source) {
-    CHECK_PARAM(hdl_source);
-    if (hdl_source->arrays != NULL) {
-        free(hdl_source->arrays);
-        hdl_source->arrays = NULL;
+auto_error_t hdl_free(hdl_info_t *hdl_info) {
+    CHECK_PARAM(hdl_info);
+    if (hdl_info->arrays != NULL) {
+        free(hdl_info->arrays);
+        hdl_info->arrays = NULL;
     }
-    if (hdl_source->params != NULL) {
-        free(hdl_source->params);
-        hdl_source->params = NULL;
+    if (hdl_info->params != NULL) {
+        free(hdl_info->params);
+        hdl_info->params = NULL;
     }
-    if (hdl_source->source != NULL) {
-        free(hdl_source->source);
-        hdl_source->source = NULL;
+    if (hdl_info->source != NULL) {
+        free(hdl_info->source);
+        hdl_info->source = NULL;
     }
     return ERR_NONE;
 }

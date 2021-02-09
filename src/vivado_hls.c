@@ -10,18 +10,18 @@
 #include <string.h>
 #include <sys/types.h>
 
-auto_error_t create_hls(vivado_hls_t *hls, hdl_source_t *hdl_source) {
+auto_error_t create_hls(vivado_hls_t *hls, hdl_info_t *hdl_info) {
     CHECK_PARAM(hls);
-    CHECK_PARAM(hdl_source);
+    CHECK_PARAM(hdl_info);
 
     memset(hls, 0, sizeof(vivado_hls_t));
 
     char path_temp[MAX_PATH_LENGTH];
     memset(path_temp, 0, sizeof(char) * MAX_PATH_LENGTH);
-    strncpy(path_temp, hdl_source->dir, MAX_PATH_LENGTH);
+    strncpy(path_temp, hdl_info->dir, MAX_PATH_LENGTH);
     uint16_t max = (uint16_t)(MAX_PATH_LENGTH - strlen(path_temp) - 1);
 
-    char *temp_hdl_name = strrchr(hdl_source->top_file_path, '/') + 1;
+    char *temp_hdl_name = strrchr(hdl_info->top_file_path, '/') + 1;
     char pattern[MAX_NAME_LENGTH];
     memset(pattern, 0, MAX_NAME_LENGTH * sizeof(char));
 
@@ -265,19 +265,19 @@ bool check_parentheses(const char *look_for_arrays, hdl_array_t *arr,
     return false;
 }
 
-auto_error_t determine_read_or_write(hdl_source_t *hdl_source,
+auto_error_t determine_read_or_write(hdl_info_t *hdl_info,
                                      const char *source_off,
                                      size_t end_of_prototype) {
 
-    CHECK_PARAM(hdl_source);
+    CHECK_PARAM(hdl_info);
     CHECK_PARAM(source_off);
 
     regmatch_t match[1];
     const char *str_match;
     size_t str_match_len;
 
-    for (size_t i = 0; i < hdl_source->nb_arrays; ++i) {
-        const char *name = hdl_source->arrays[i].name;
+    for (size_t i = 0; i < hdl_info->nb_arrays; ++i) {
+        const char *name = hdl_info->arrays[i].name;
         char pattern[MAX_NAME_LENGTH];
         memset(pattern, 0, sizeof(MAX_NAME_LENGTH));
         int written =
@@ -291,30 +291,30 @@ auto_error_t determine_read_or_write(hdl_source_t *hdl_source,
         str_match = source_off + match[0].rm_so;
         str_match_len = (size_t)(match[0].rm_eo - match[0].rm_so);
 
-        hdl_source->arrays[i].read = false;
-        hdl_source->arrays[i].write = false;
+        hdl_info->arrays[i].read = false;
+        hdl_info->arrays[i].write = false;
 
-        bool res = check_type(str_match, &(hdl_source->arrays[i]));
+        bool res = check_type(str_match, &(hdl_info->arrays[i]));
 
         if (!res) {
             // Read matching
             const char *look_for_arrays = source_off + end_of_prototype;
             uint8_t nb_match = 0;
             res = check_square_bracket(look_for_arrays,
-                                       &(hdl_source->arrays[i]), READ);
+                                       &(hdl_info->arrays[i]), READ);
             if (!res) {
                 res = check_parentheses(look_for_arrays,
-                                        &(hdl_source->arrays[i]), READ);
+                                        &(hdl_info->arrays[i]), READ);
                 if (!res) {
                     nb_match++;
                 }
             }
             // Write matching
             res = check_square_bracket(look_for_arrays,
-                                       &(hdl_source->arrays[i]), WRITE);
+                                       &(hdl_info->arrays[i]), WRITE);
             if (!res) {
                 res = check_parentheses(look_for_arrays,
-                                        &(hdl_source->arrays[i]), WRITE);
+                                        &(hdl_info->arrays[i]), WRITE);
                 if (!res) {
                     if (nb_match == 1) {
                         fprintf(
@@ -329,11 +329,11 @@ auto_error_t determine_read_or_write(hdl_source_t *hdl_source,
     return ERR_NONE;
 }
 
-auto_error_t parse_hls(vivado_hls_t *hls, hdl_source_t *hdl_source) {
+auto_error_t parse_hls(vivado_hls_t *hls, hdl_info_t *hdl_info) {
     CHECK_PARAM(hls);
     CHECK_PARAM(hls->hls_source);
-    CHECK_PARAM(hdl_source);
-    CHECK_PARAM(hdl_source->arrays);
+    CHECK_PARAM(hdl_info);
+    CHECK_PARAM(hdl_info->arrays);
 
     const char *source_off = hls->hls_source;
 
@@ -349,7 +349,7 @@ auto_error_t parse_hls(vivado_hls_t *hls, hdl_source_t *hdl_source) {
     char *modif;
     CHECK_CALL(find_func(hls, &source_off, &end_prototype, &save, &modif),
                "find_func failed !");
-    CHECK_CALL(determine_read_or_write(hdl_source, source_off, end_prototype),
+    CHECK_CALL(determine_read_or_write(hdl_info, source_off, end_prototype),
                "determine_read_or_write failed !");
     *modif = save;
     return ERR_NONE;
@@ -872,7 +872,7 @@ float_op_t *create_fadd(vivado_hls_t *hls) {
     return new_fadd_op;
 }
 
-float_op_t *create_fsub(vivado_hls_t *hls, float_op_t *fadd_op) {
+float_op_t *create_fsub(float_op_t *fadd_op) {
 
     char tcl_script_path[MAX_PATH_LENGTH];
     memset(tcl_script_path, 0, sizeof(char) * MAX_PATH_LENGTH);
@@ -1061,7 +1061,7 @@ float_op_t *create_fsub(vivado_hls_t *hls, float_op_t *fadd_op) {
 auto_error_t handle_faddfsub(vivado_hls_t *hls) {
 
     float_op_t *fadd_op = create_fadd(hls);
-    float_op_t *fsub_op = create_fsub(hls, fadd_op);
+    float_op_t *fsub_op = create_fsub(fadd_op);
 
     for (uint8_t i = 0; i < hls->nb_float_op; ++i) {
         float_op_t *op = &(hls->float_ops[i]);
@@ -1074,7 +1074,7 @@ auto_error_t handle_faddfsub(vivado_hls_t *hls) {
     }
 
     float_op_t *new_floats = realloc(
-        hls->float_ops, (size_t)(sizeof(float_op_t) * (hls->nb_float_op + 1)));
+        hls->float_ops, (size_t)(sizeof(float_op_t) * (size_t)(hls->nb_float_op + 1)));
     if (new_floats == NULL) {
         return ERR_MEM;
     }
@@ -1168,7 +1168,7 @@ auto_error_t find_float_op(vivado_hls_t *hls) {
     return ERR_NONE;
 }
 
-auto_error_t open_dot_file(vivado_hls_t *hls, hdl_source_t *hdl) {
+auto_error_t open_dot_file(vivado_hls_t *hls, hdl_info_t *hdl) {
     CHECK_PARAM(hls);
     CHECK_PARAM(hdl);
 
@@ -1513,9 +1513,9 @@ void free_floats(vivado_hls_t *hls) {
     free(hls->float_ops);
 }
 
-auto_error_t resolve_float_ops(vivado_hls_t *hls, hdl_source_t *hdl_source) {
+auto_error_t resolve_float_ops(vivado_hls_t *hls, hdl_info_t *hdl_info) {
     CHECK_CALL(find_float_op(hls), "find_float_op failed !");
-    CHECK_CALL(open_dot_file(hls, hdl_source), "open_dot_file failed !");
+    CHECK_CALL(open_dot_file(hls, hdl_info), "open_dot_file failed !");
     CHECK_CALL(update_fop_tcl(hls), "update_fop_tcl failed !");
     return ERR_NONE;
 }

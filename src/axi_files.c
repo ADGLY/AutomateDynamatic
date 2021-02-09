@@ -12,14 +12,14 @@ auto_error_t create_axi(axi_ip_t *axi_ip, project_t *project) {
     memset(axi_ip, 0, sizeof(axi_ip_t));
 
     // Added end_out
-    axi_ip->nb_slave_registers = project->hdl_source->nb_params + 3;
+    axi_ip->nb_slave_registers = project->hdl_info->nb_params + 3;
 
     // Minimum is four slave registers
     if (axi_ip->nb_slave_registers < 4) {
         axi_ip->nb_slave_registers = 4;
     }
 
-    axi_ip->data_width = project->hdl_source->max_param_width;
+    axi_ip->data_width = project->hdl_info->max_param_width;
     axi_ip->addr_width = (uint16_t)(
         (uint16_t)(63 - __builtin_clzll(axi_ip->nb_slave_registers - 1) + 1) +
         (uint16_t)(63 - __builtin_clzll(axi_ip->data_width >> 3)));
@@ -37,7 +37,7 @@ auto_error_t create_axi(axi_ip_t *axi_ip, project_t *project) {
     axi_ip->revision = 1;
 
     int written = snprintf(axi_ip->name, MAX_NAME_LENGTH - strlen("axi_ip_"),
-                           "axi_ip_%s", project->hdl_source->name);
+                           "axi_ip_%s", project->hdl_info->name);
     CHECK_LENGTH(written, (int)(MAX_NAME_LENGTH - strlen("axi_ip_")));
     return ERR_NONE;
 }
@@ -228,7 +228,7 @@ auto_error_t advance_in_file(regex_t *reg, regmatch_t *match, FILE *file,
 
 auto_error_t write_top_file(project_t *project, axi_ip_t *axi_ip) {
     CHECK_PARAM(project);
-    CHECK_PARAM(project->hdl_source);
+    CHECK_PARAM(project->hdl_info);
     CHECK_PARAM(axi_ip->axi_files.top_file)
 
     regex_t reg;
@@ -239,8 +239,8 @@ auto_error_t write_top_file(project_t *project, axi_ip_t *axi_ip) {
 
     const char *top_file_off = axi_ip->axi_files.top_file;
 
-    hdl_source_t *hdl_source = project->hdl_source;
-    CHECK_COND_DO(hdl_source == NULL, ERR_NULL, "hdl_source is NULL !",
+    hdl_info_t *hdl_info = project->hdl_info;
+    CHECK_COND_DO(hdl_info == NULL, ERR_NULL, "hdl_info is NULL !",
                   fclose(new_top_file););
 
     char pattern[MAX_NAME_LENGTH];
@@ -276,14 +276,14 @@ auto_error_t write_top_file(project_t *project, axi_ip_t *axi_ip) {
                                   "-- Users to add ports here"),
                   "advance in file failed !", fclose(new_top_file););
 
-    for (size_t i = 0; i < hdl_source->nb_arrays; ++i) {
+    for (size_t i = 0; i < hdl_info->nb_arrays; ++i) {
         CHECK_CALL_DO(write_array_ports(new_top_file,
-                                        &(hdl_source->arrays[i].write_ports),
-                                        hdl_source->arrays[i].width),
+                                        &(hdl_info->arrays[i].write_ports),
+                                        hdl_info->arrays[i].width),
                       "write_array_ports failed !", fclose(new_top_file));
         CHECK_CALL_DO(write_array_ports(new_top_file,
-                                        &(hdl_source->arrays[i].read_ports),
-                                        hdl_source->arrays[i].width),
+                                        &(hdl_info->arrays[i].read_ports),
+                                        hdl_info->arrays[i].width),
                       "write_array_ports failed !", fclose(new_top_file));
     }
 
@@ -313,16 +313,16 @@ auto_error_t write_top_file(project_t *project, axi_ip_t *axi_ip) {
     fprintf(new_top_file, "\t\taxi_start_ready : in std_logic;\n");
     fprintf(new_top_file,
             "\t\taxi_end_out : in std_logic_vector(%" PRIu16 " downto 0);\n",
-            hdl_source->end_out_width - 1);
+            hdl_info->end_out_width - 1);
     fprintf(new_top_file, "\t\taxi_end_valid : in std_logic;\n");
     fprintf(new_top_file, "\t\taxi_end_ready : out std_logic;\n");
 
-    for (size_t i = 0; i < hdl_source->nb_params; ++i) {
-        const char *param_name = hdl_source->params[i].name;
+    for (size_t i = 0; i < hdl_info->nb_params; ++i) {
+        const char *param_name = hdl_info->params[i].name;
         fprintf(new_top_file,
                 "\t\taxi_%s_din : out std_logic_vector(%" PRIu16
                 " downto 0);\n",
-                param_name, hdl_source->params[i].width - 1);
+                param_name, hdl_info->params[i].width - 1);
     }
 
     fprintf(new_top_file, "\t\taxi_reset : out std_logic;\n");
@@ -333,7 +333,7 @@ auto_error_t write_top_file(project_t *project, axi_ip_t *axi_ip) {
 
     fprintf(new_top_file, "\n");
 
-    fprintf(new_top_file, "\tcomponent %s is\n", hdl_source->name);
+    fprintf(new_top_file, "\tcomponent %s is\n", hdl_info->name);
     fprintf(new_top_file, "\t\tport (\n");
 
     fprintf(new_top_file, "\t\tclk:  in std_logic;\n");
@@ -343,9 +343,9 @@ auto_error_t write_top_file(project_t *project, axi_ip_t *axi_ip) {
     fprintf(new_top_file, "\t\tstart_ready:  out std_logic;\n");
     fprintf(new_top_file,
             "\t\tend_out:  out std_logic_vector (%" PRIu16 " downto 0);\n",
-            hdl_source->end_out_width - 1);
+            hdl_info->end_out_width - 1);
     fprintf(new_top_file, "\t\tend_valid:  out std_logic;\n");
-    if (hdl_source->nb_arrays == 0 && hdl_source->nb_params == 0) {
+    if (hdl_info->nb_arrays == 0 && hdl_info->nb_params == 0) {
         fprintf(new_top_file, "\t\tend_ready:  in std_logic\n");
     } else {
         fprintf(new_top_file, "\t\tend_ready:  in std_logic;\n");
@@ -353,27 +353,27 @@ auto_error_t write_top_file(project_t *project, axi_ip_t *axi_ip) {
 
     bool last;
 
-    for (size_t i = 0; i < hdl_source->nb_arrays; ++i) {
-        last = (i == hdl_source->nb_arrays - 1 && hdl_source->nb_params == 0);
+    for (size_t i = 0; i < hdl_info->nb_arrays; ++i) {
+        last = (i == hdl_info->nb_arrays - 1 && hdl_info->nb_params == 0);
         CHECK_CALL_DO(write_array_ports_wo_prefix(
-                          new_top_file, &(hdl_source->arrays[i].write_ports),
-                          false, hdl_source->arrays[i].width),
+                          new_top_file, &(hdl_info->arrays[i].write_ports),
+                          false, hdl_info->arrays[i].width),
                       "write_array_ports_wo_prefix failed !",
                       fclose(new_top_file));
         CHECK_CALL_DO(write_array_ports_wo_prefix(
-                          new_top_file, &(hdl_source->arrays[i].read_ports),
-                          last, hdl_source->arrays[i].width),
+                          new_top_file, &(hdl_info->arrays[i].read_ports),
+                          last, hdl_info->arrays[i].width),
                       "write_array_ports_wo_prefix failed !",
                       fclose(new_top_file));
     }
 
-    for (size_t i = 0; i < hdl_source->nb_params; ++i) {
-        const char *param_name = hdl_source->params[i].name;
+    for (size_t i = 0; i < hdl_info->nb_params; ++i) {
+        const char *param_name = hdl_info->params[i].name;
         fprintf(new_top_file,
                 "\t\t%s_din : in std_logic_vector (%" PRIu16 " downto 0);\n",
-                param_name, hdl_source->params[i].width - 1);
+                param_name, hdl_info->params[i].width - 1);
         fprintf(new_top_file, "\t\t%s_valid_in : in std_logic;\n", param_name);
-        if (i == hdl_source->nb_params - 1) {
+        if (i == hdl_info->nb_params - 1) {
             fprintf(new_top_file, "\t\t%s_ready_out : out std_logic\n",
                     param_name);
         } else {
@@ -383,7 +383,7 @@ auto_error_t write_top_file(project_t *project, axi_ip_t *axi_ip) {
     }
 
     fprintf(new_top_file, "\t\t);\n");
-    fprintf(new_top_file, "\tend component %s;\n", hdl_source->name);
+    fprintf(new_top_file, "\tend component %s;\n", hdl_info->name);
 
     fprintf(new_top_file, "\n");
 
@@ -393,16 +393,16 @@ auto_error_t write_top_file(project_t *project, axi_ip_t *axi_ip) {
     fprintf(new_top_file,
             "\tsignal dynamatic_end_out : std_logic_vector(%" PRIu16
             " downto 0);\n",
-            hdl_source->end_out_width - 1);
+            hdl_info->end_out_width - 1);
     fprintf(new_top_file, "\tsignal dynamatic_end_valid : std_logic;\n");
     fprintf(new_top_file, "\tsignal dynamatic_end_ready : std_logic;\n");
 
-    for (size_t i = 0; i < hdl_source->nb_params; ++i) {
-        const char *param_name = hdl_source->params[i].name;
+    for (size_t i = 0; i < hdl_info->nb_params; ++i) {
+        const char *param_name = hdl_info->params[i].name;
         fprintf(new_top_file,
                 "\tsignal dynamatic_%s_din : std_logic_vector(%" PRIu16
                 " downto 0);\n",
-                param_name, hdl_source->params[i].width - 1);
+                param_name, hdl_info->params[i].width - 1);
     }
 
     CHECK_CALL_DO(advance_in_file(&reg, match, new_top_file, &top_file_off,
@@ -415,8 +415,8 @@ auto_error_t write_top_file(project_t *project, axi_ip_t *axi_ip) {
     fprintf(new_top_file, "\t\taxi_end_valid => dynamatic_end_valid,\n");
     fprintf(new_top_file, "\t\taxi_end_ready => dynamatic_end_ready,\n");
 
-    for (size_t i = 0; i < hdl_source->nb_params; ++i) {
-        const char *param_name = hdl_source->params[i].name;
+    for (size_t i = 0; i < hdl_info->nb_params; ++i) {
+        const char *param_name = hdl_info->params[i].name;
         fprintf(new_top_file, "\t\taxi_%s_din => dynamatic_%s_din,\n",
                 param_name, param_name);
     }
@@ -427,8 +427,8 @@ auto_error_t write_top_file(project_t *project, axi_ip_t *axi_ip) {
                                   "-- Add user logic here"),
                   "advance in file failed !", fclose(new_top_file););
 
-    fprintf(new_top_file, "\t%s_inst : %s\n", hdl_source->name,
-            hdl_source->name);
+    fprintf(new_top_file, "\t%s_inst : %s\n", hdl_info->name,
+            hdl_info->name);
     fprintf(new_top_file, "\tport map (\n");
 
     fprintf(new_top_file, "\t\tclk => csr_aclk,\n");
@@ -438,30 +438,30 @@ auto_error_t write_top_file(project_t *project, axi_ip_t *axi_ip) {
     fprintf(new_top_file, "\t\tstart_ready => dynamatic_start_ready,\n");
     fprintf(new_top_file, "\t\tend_out => dynamatic_end_out,\n");
     fprintf(new_top_file, "\t\tend_valid => dynamatic_end_valid,\n");
-    if (hdl_source->nb_arrays == 0 && hdl_source->nb_params == 0) {
+    if (hdl_info->nb_arrays == 0 && hdl_info->nb_params == 0) {
         fprintf(new_top_file, "\t\tend_ready => dynamatic_end_ready\n");
     } else {
         fprintf(new_top_file, "\t\tend_ready => dynamatic_end_ready,\n");
     }
 
-    for (size_t i = 0; i < hdl_source->nb_arrays; ++i) {
-        last = (i == hdl_source->nb_arrays - 1 && hdl_source->nb_params == 0);
+    for (size_t i = 0; i < hdl_info->nb_arrays; ++i) {
+        last = (i == hdl_info->nb_arrays - 1 && hdl_info->nb_params == 0);
         CHECK_CALL_DO(
             write_arrays_port_map(new_top_file,
-                                  &(hdl_source->arrays[i].write_ports), false),
+                                  &(hdl_info->arrays[i].write_ports), false),
             "write_arrays_port_map failed !", fclose(new_top_file));
         CHECK_CALL_DO(write_arrays_port_map(new_top_file,
-                                            &(hdl_source->arrays[i].read_ports),
+                                            &(hdl_info->arrays[i].read_ports),
                                             last),
                       "write_arrays_port_map failed !", fclose(new_top_file));
     }
 
-    for (size_t i = 0; i < hdl_source->nb_params; ++i) {
-        const char *param_name = hdl_source->params[i].name;
+    for (size_t i = 0; i < hdl_info->nb_params; ++i) {
+        const char *param_name = hdl_info->params[i].name;
         fprintf(new_top_file, "\t\t%s_din => dynamatic_%s_din,\n", param_name,
                 param_name);
         fprintf(new_top_file, "\t\t%s_valid_in => '1',\n", param_name);
-        if (i == hdl_source->nb_params - 1) {
+        if (i == hdl_info->nb_params - 1) {
             fprintf(new_top_file, "\t\t%s_ready_out => OPEN\n", param_name);
         } else {
             fprintf(new_top_file, "\t\t%s_ready_out => OPEN,\n", param_name);
@@ -485,7 +485,7 @@ auto_error_t write_top_file(project_t *project, axi_ip_t *axi_ip) {
 
 auto_error_t write_axi_file(project_t *project, axi_ip_t *axi_ip) {
     CHECK_PARAM(project);
-    CHECK_PARAM(project->hdl_source);
+    CHECK_PARAM(project->hdl_info);
     CHECK_PARAM(axi_ip->axi_files.axi_file);
 
     regex_t reg;
@@ -496,7 +496,7 @@ auto_error_t write_axi_file(project_t *project, axi_ip_t *axi_ip) {
 
     const char *axi_file_off = axi_ip->axi_files.axi_file;
 
-    hdl_source_t *hdl_source = project->hdl_source;
+    hdl_info_t *hdl_info = project->hdl_info;
 
     CHECK_CALL_DO(
         advance_in_file(&reg, match, new_axi_file, &axi_file_off,
@@ -523,16 +523,16 @@ auto_error_t write_axi_file(project_t *project, axi_ip_t *axi_ip) {
     fprintf(new_axi_file, "\t\taxi_start_ready : in std_logic;\n");
     fprintf(new_axi_file,
             "\t\taxi_end_out : in std_logic_vector(%" PRIu16 " downto 0);\n",
-            hdl_source->end_out_width - 1);
+            hdl_info->end_out_width - 1);
     fprintf(new_axi_file, "\t\taxi_end_valid : in std_logic;\n");
     fprintf(new_axi_file, "\t\taxi_end_ready : out std_logic;\n");
 
-    for (size_t i = 0; i < hdl_source->nb_params; ++i) {
-        const char *param_name = hdl_source->params[i].name;
+    for (size_t i = 0; i < hdl_info->nb_params; ++i) {
+        const char *param_name = hdl_info->params[i].name;
         fprintf(new_axi_file,
                 "\t\taxi_%s_din : out std_logic_vector(%" PRIu16
                 " downto 0);\n",
-                param_name, hdl_source->params[i].width - 1);
+                param_name, hdl_info->params[i].width - 1);
     }
 
     fprintf(new_axi_file, "\t\taxi_reset : out std_logic;\n");
@@ -578,7 +578,7 @@ auto_error_t write_axi_file(project_t *project, axi_ip_t *axi_ip) {
     }
     fseek(new_axi_file, -nb_removed, SEEK_CUR);
     fprintf(new_axi_file, "(%" PRIu16 " downto 0) <= axi_end_out;",
-            hdl_source->end_out_width - 1);
+            hdl_info->end_out_width - 1);
 
     CHECK_CALL_DO(advance_in_file(&reg, match, new_axi_file, &axi_file_off,
                                   "-- Add user logic here"),
@@ -588,11 +588,11 @@ auto_error_t write_axi_file(project_t *project, axi_ip_t *axi_ip) {
     fprintf(new_axi_file, "\taxi_end_ready <= slv_reg0(1);\n");
     fprintf(new_axi_file, "\taxi_reset <= slv_reg0(2);\n");
     int slv_reg_nb = 2;
-    for (size_t i = 0; i < hdl_source->nb_params; ++i) {
-        const char *param_name = hdl_source->params[i].name;
+    for (size_t i = 0; i < hdl_info->nb_params; ++i) {
+        const char *param_name = hdl_info->params[i].name;
         fprintf(new_axi_file,
                 "\taxi_%s_din <= slv_reg%d(%" PRIu16 " downto 0);\n",
-                param_name, slv_reg_nb, hdl_source->params[i].width - 1);
+                param_name, slv_reg_nb, hdl_info->params[i].width - 1);
         slv_reg_nb++;
     }
 

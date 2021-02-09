@@ -7,10 +7,10 @@
 |---------------------------------------------------------------------------------------------------------------|*/
 
 void memory_connection_automation_zynq(FILE *tcl_script,
-                                       hdl_source_t *hdl_source) {
+                                       hdl_info_t *hdl_info) {
 
-    for (size_t i = 0; i < hdl_source->nb_arrays; ++i) {
-        hdl_array_t *arr = &(hdl_source->arrays[i]);
+    for (size_t i = 0; i < hdl_info->nb_arrays; ++i) {
+        hdl_array_t *arr = &(hdl_info->arrays[i]);
         const char *suffix;
         if (arr->write && arr->read) {
             suffix = "read_write";
@@ -65,8 +65,8 @@ void zynq_connection_automation(FILE *tcl_script, project_t *project,
                                 axi_ip_t *axi_ip) {
 
     fprintf(tcl_script, "startgroup\n");
-    for (uint16_t i = 0; i < project->hdl_source->nb_arrays; ++i) {
-        hdl_array_t *arr = &(project->hdl_source->arrays[i]);
+    for (uint16_t i = 0; i < project->hdl_info->nb_arrays; ++i) {
+        hdl_array_t *arr = &(project->hdl_info->arrays[i]);
         GET_SUFFIX(arr, suffix);
         fprintf(tcl_script,
                 "apply_bd_automation -rule xilinx.com:bd_rule:axi4 ");
@@ -94,8 +94,8 @@ void zynq_connection_automation(FILE *tcl_script, project_t *project,
             axi_ip->name, axi_ip->interface_name);
     fprintf(tcl_script, "endgroup\n");
 
-    for (size_t i = 0; i < project->hdl_source->nb_arrays; ++i) {
-        hdl_array_t *arr = &(project->hdl_source->arrays[i]);
+    for (size_t i = 0; i < project->hdl_info->nb_arrays; ++i) {
+        hdl_array_t *arr = &(project->hdl_info->arrays[i]);
         GET_SUFFIX(arr, suffix_inter)
         fprintf(tcl_script,
                 "connect_bd_net [get_bd_pins blk_mem_gen_%s_%s/clkb] "
@@ -103,8 +103,8 @@ void zynq_connection_automation(FILE *tcl_script, project_t *project,
                 arr->name, suffix_inter);
     }
 
-    for (size_t i = 0; i < project->hdl_source->nb_arrays; ++i) {
-        hdl_array_t *arr = &(project->hdl_source->arrays[i]);
+    for (size_t i = 0; i < project->hdl_info->nb_arrays; ++i) {
+        hdl_array_t *arr = &(project->hdl_info->arrays[i]);
         GET_SUFFIX(arr, suffix_inter)
         fprintf(tcl_script,
                 "set_property range "
