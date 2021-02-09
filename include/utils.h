@@ -53,7 +53,7 @@ void str_tolower(char* str);
  *
  * @return an error codes
  */
-auto_error_t get_name(char* name, const char* msg);
+auto_error_t get_name(char* str, const char* msg);
 
 /**
  * Prints a message and asks for a path. The path might exist or not.
@@ -71,7 +71,7 @@ auto_error_t get_path(char* path, const char* msg, bool must_exist);
 /**
  * Frees the given array of strings
  *
- * @param str_arr the string array to free
+ * @param str_arr the strings array to free
  * @param nb_allocated the number of allocated elements
  *
  **/

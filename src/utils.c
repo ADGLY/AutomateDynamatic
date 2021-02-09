@@ -47,15 +47,25 @@ char* read_file(const char* path, size_t* file_size) {
 	return source;
 }
 
-auto_error_t get_string(char* name, const char* msg, int length) {
-	CHECK_PARAM(name);
+/**
+* Get a string from stdin
+* 
+* @param str the string to fill with the input
+* @param msg the message to print
+* @param length the number of chars str can store
+* 
+* @return an error code
+* 
+**/
+auto_error_t get_str(char* str, const char* msg, int length) {
+	CHECK_PARAM(str);
 	CHECK_PARAM(msg);
 
 	printf("%s\n", msg);
-	char* result = fgets(name, length, stdin);
+	char* result = fgets(str, length, stdin);
 	CHECK_COND(result == NULL, ERR_IO,
 		"There was an error while reading the input !");
-	name[strlen(name) - 1] = '\0';
+	str[strlen(str) - 1] = '\0';
 	return ERR_NONE;
 }
 
@@ -74,17 +84,12 @@ void str_tolower(char* str) {
 }
 
 auto_error_t get_name(char* name, const char* msg) {
-	CHECK_CALL(get_string(name, msg, MAX_NAME_LENGTH), "get_string failed !");
+	CHECK_CALL(get_str(name, msg, MAX_NAME_LENGTH), "get_string failed !");
 	return ERR_NONE;
 }
 
-auto_error_t get_path(char* path, const char* msg, bool must_exist) {
-	char temp_resolved_path[MAX_PATH_LENGTH];
-	memset(temp_resolved_path, 0, sizeof(char) * MAX_NAME_LENGTH);
-
-	CHECK_CALL(get_string(temp_resolved_path, msg, MAX_PATH_LENGTH), "get_string failed !");
-
-	char* final_path = realpath(temp_resolved_path, path);
+auto_error_t resolve_path(bool must_exist, char* path, char* temp_path) {
+	char* final_path = realpath(temp_path, path);
 	if (final_path == NULL) {
 		if (must_exist) {
 			return ERR_IO;
@@ -96,7 +101,7 @@ auto_error_t get_path(char* path, const char* msg, bool must_exist) {
 		size_t nb_components = 0;
 		bool fully_resolved_path = false;
 		while (final_path == NULL && !fully_resolved_path) {
-			char* last_comp = strrchr(temp_resolved_path, '/');
+			char* last_comp = strrchr(temp_path, '/');
 			if (last_comp == NULL) {
 				fully_resolved_path = true;
 			}
@@ -130,19 +135,18 @@ auto_error_t get_path(char* path, const char* msg, bool must_exist) {
 
 	CHECK_COND(final_path == NULL && errno != ENOENT, ERR_PATH,
 		"Could not resolve absolute path !");
+
 	return ERR_NONE;
 }
 
-void free_str_arr(char** str_arr, uint8_t nb_allocated) {
-	if (str_arr == NULL) {
-		return;
-	}
-	for (uint8_t i = 0; i < nb_allocated; ++i) {
-		if (str_arr[i] != NULL) {
-			free(str_arr[i]);
-		}
-	}
-	free(str_arr);
+auto_error_t get_path(char* path, const char* msg, bool must_exist) {
+	char temp_resolved_path[MAX_PATH_LENGTH];
+	memset(temp_resolved_path, 0, sizeof(char) * MAX_NAME_LENGTH);
+
+	CHECK_CALL(get_str(temp_resolved_path, msg, MAX_PATH_LENGTH), "get_string failed !");
+
+	CHECK_CALL(resolve_path(must_exist, path, temp_resolved_path), "resolve_path failed !");
+	return ERR_NONE;
 }
 
 auto_error_t allocate_str_arr(char*** str_arr, uint8_t* nb_allocated) {
@@ -171,6 +175,18 @@ auto_error_t allocate_str_arr(char*** str_arr, uint8_t* nb_allocated) {
 			free_str_arr(*str_arr, i););
 	}
 	return ERR_NONE;
+}
+
+void free_str_arr(char** str_arr, uint8_t nb_allocated) {
+	if (str_arr == NULL) {
+		return;
+	}
+	for (uint8_t i = 0; i < nb_allocated; ++i) {
+		if (str_arr[i] != NULL) {
+			free(str_arr[i]);
+		}
+	}
+	free(str_arr);
 }
 
 int unlink_cb(const char* fpath, const struct stat* sb, int typeflag,
