@@ -4,13 +4,14 @@
 #include <dirent.h>
 #include <errno.h>
 #include <ftw.h>
-#include <regex.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "regex_wrapper.h"
+
 
 char* read_file(const char* path, size_t* file_size) {
 	if (path == NULL) {
@@ -70,13 +71,13 @@ void remove_trailing_whitespace(char* str) {
 
 /**
 * Get a string from stdin
-* 
+*
 * @param str the string to fill with the input
 * @param msg the message to print
 * @param length the number of chars str can store
-* 
+*
 * @return an error code
-* 
+*
 **/
 auto_error_t get_str(char* str, const char* msg, int length) {
 	CHECK_PARAM(str);
@@ -260,8 +261,8 @@ void clean_folder() {
 
 	struct dirent* dir;
 	while ((dir = readdir(d)) != NULL) {
-		err = regexec(&reg, dir->d_name, 1, match, 0);
-		if (err == 0) {
+		err = find_pattern_compiled(&reg, dir->d_name, 1, match);
+		if (err == ERR_NONE) {
 			remove(dir->d_name);
 		}
 	}

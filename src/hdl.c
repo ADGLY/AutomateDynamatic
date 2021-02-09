@@ -1,6 +1,6 @@
 #include "hdl.h"
 #include <dirent.h>
-#include <regex.h>
+#include "regex_wrapper.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,26 +42,10 @@ auto_error_t hdl_create(hdl_info_t* hdl_info) {
     return ERR_NONE;
 }
 
-
-auto_error_t get_simple_info(hdl_info_t *hdl_info, const char *pattern,
-                             regmatch_t *match, size_t nmatch) {
-    CHECK_PARAM(hdl_info);
-    CHECK_PARAM(hdl_info->source);
-
-    regex_t reg;
-    int err = regcomp(&reg, pattern, REG_EXTENDED);
-    CHECK_COND(err != 0, ERR_REGEX, "Reg compile error !");
-    err = regexec(&reg, hdl_info->source, nmatch, (regmatch_t *)match, 0);
-    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg exec error !", regfree(&reg););
-    regfree(&reg);
-
-    return ERR_NONE;
-}
-
 auto_error_t get_end_of_ports_decl(hdl_info_t *hdl_info) {
     regmatch_t match[1];
-    CHECK_CALL(get_simple_info(hdl_info, "end;", match, 1),
-               "get_simple_info failed !");
+    CHECK_CALL(find_pattern("end;", hdl_info->source, 1, match), "find_pattern failed !");
+
     hdl_info->end_of_ports_decl = (size_t)match[0].rm_eo;
 
     return ERR_NONE;
@@ -69,10 +53,8 @@ auto_error_t get_end_of_ports_decl(hdl_info_t *hdl_info) {
 
 auto_error_t get_entity_name(hdl_info_t *hdl_info) {
     regmatch_t match[2];
-    CHECK_CALL(get_simple_info(hdl_info,
-                               "entity[[:space:]]*(\\w+)[[:space:]]*is", match,
-                               2),
-               "get_simple_info failed !");
+    CHECK_CALL(find_pattern("entity[[:space:]]*(\\w+)[[:space:]]*is", hdl_info->source, 2, match), "find_pattern failed !");
+
     CHECK_LENGTH((size_t)(match[1].rm_eo - match[1].rm_so), MAX_NAME_LENGTH);
     strncpy(hdl_info->name, hdl_info->source + match[1].rm_so,
             (size_t)(match[1].rm_eo - match[1].rm_so));
@@ -82,8 +64,9 @@ auto_error_t get_entity_name(hdl_info_t *hdl_info) {
 
 auto_error_t iterate_hdl(regex_t *reg, const char **source_off,
                          regmatch_t *match, const char **str_match,
-                         size_t *str_match_len, int *err, int nb_match) {
-    *err = regexec(reg, *source_off, (size_t)nb_match, (regmatch_t *)match, 0);
+                         size_t *str_match_len, int *err, size_t nb_match) {
+
+    *err = find_pattern_compiled(reg, *source_off, nb_match, match);
     if (*err != 0) {
         return ERR_NONE;
     }
@@ -315,11 +298,7 @@ auto_error_t get_params(hdl_info_t *hdl_info) {
 
 auto_error_t get_end_out_width(hdl_info_t *hdl_info) {
     regmatch_t match[2];
-    CHECK_CALL(get_simple_info(hdl_info,
-                               "end_out[[:space:]]*:[[:space:]]*out[[:space:]]*"
-                               "std_logic_vector[[:space:]]*\\(([[:digit:]]+)",
-                               match, 2),
-               "get_simple_info failed !");
+    CHECK_CALL(find_pattern("end_out[[:space:]]*:[[:space:]]*out[[:space:]]*std_logic_vector[[:space:]]*\\(([[:digit:]]+)", hdl_info->source, 2, match), "find_pattern failed !");
     char width[MAX_NAME_LENGTH];
     memset(width, 0, MAX_NAME_LENGTH * sizeof(char));
 

@@ -5,7 +5,8 @@ set(HEADER_FILES "${AutomateDynamatic_SOURCE_DIR}/include/axi_files.h"
                  "${AutomateDynamatic_SOURCE_DIR}/include/tcl.h"
                  "${AutomateDynamatic_SOURCE_DIR}/include/utils.h"
                  "${AutomateDynamatic_SOURCE_DIR}/include/vivado_hls.h"
-                 "${AutomateDynamatic_SOURCE_DIR}/include/vivado.h")
+                 "${AutomateDynamatic_SOURCE_DIR}/include/vivado.h"
+                 "${AutomateDynamatic_SOURCE_DIR}/include/regex_wrapper.h")
                  
 set(SOURCE_LIST "${AutomateDynamatic_SOURCE_DIR}/src/axi_files.c"
                 "${AutomateDynamatic_SOURCE_DIR}/src/hdl.c"
@@ -13,7 +14,8 @@ set(SOURCE_LIST "${AutomateDynamatic_SOURCE_DIR}/src/axi_files.c"
                 "${AutomateDynamatic_SOURCE_DIR}/src/tcl.c"
                 "${AutomateDynamatic_SOURCE_DIR}/src/utils.c"
                 "${AutomateDynamatic_SOURCE_DIR}/src/vivado_hls.c"
-                "${AutomateDynamatic_SOURCE_DIR}/src/vivado.c")
+                "${AutomateDynamatic_SOURCE_DIR}/src/vivado.c"
+                "${AutomateDynamatic_SOURCE_DIR}/src/regex_wrapper.c")
 
 add_library(automate_dynamatic_library ${SOURCE_LIST} ${HEADER_FILES})
 
