@@ -5,8 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#include <unistd.h>
-
 static const char *const write_ports[NB_BRAM_INTERFACE] = {
     "_address0", "_ce0", "_we0", "_dout0", "_din0"};
 
