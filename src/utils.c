@@ -47,6 +47,27 @@ char* read_file(const char* path, size_t* file_size) {
 	return source;
 }
 
+char* remove_leading_whitespace(char* str) {
+	if (strlen(str) == 0) {
+		return str;
+	}
+	while (*str != '\0' && isspace(*str)) {
+		str++;
+	}
+	return str;
+}
+
+void remove_trailing_whitespace(char* str) {
+	if (strlen(str) == 0) {
+		return str;
+	}
+	char* str_temp = str + strlen(str) - 1;
+	while (strlen(str) > 0 && isspace(*str_temp)) {
+		*str_temp = '\0';
+		str_temp--;
+	}
+}
+
 /**
 * Get a string from stdin
 * 
@@ -62,10 +83,20 @@ auto_error_t get_str(char* str, const char* msg, int length) {
 	CHECK_PARAM(msg);
 
 	printf("%s\n", msg);
-	char* result = fgets(str, length, stdin);
+
+	char* str_temp = malloc(length);
+	if (str_temp == NULL) {
+		return ERR_MEM;
+	}
+
+	char* result = fgets(str_temp, length, stdin);
 	CHECK_COND(result == NULL, ERR_IO,
 		"There was an error while reading the input !");
-	str[strlen(str) - 1] = '\0';
+	remove_trailing_whitespace(str_temp);
+	char* no_lead_space = remove_leading_whitespace(str_temp);
+	strncpy(str, no_lead_space, length);
+	free(str_temp);
+
 	return ERR_NONE;
 }
 
@@ -116,8 +147,7 @@ auto_error_t resolve_path(bool must_exist, char* path, char* temp_path) {
 					fully_resolved_path = true;
 				}
 				else {
-					strncpy(path_components[nb_components], last_comp,
-						strlen(last_comp));
+					strcpy(path_components[nb_components], last_comp);
 					nb_components++;
 					*last_comp = '\0';
 				}

@@ -41,7 +41,7 @@ int main(void) {
     char part_nb[MAX_NAME_LENGTH];
     memset(part_nb, 0, sizeof(char) * MAX_NAME_LENGTH);
 
-    get_name(part_nb, "What is the target ? (part number)");
+    CHECK_CALL(get_name(part_nb, "What is the target ? (part number)"), "get_name failed !");
 
     hdl_source_t hdl_source;
     CHECK_CALL(hdl_create(&hdl_source), "hdl_create failed !");

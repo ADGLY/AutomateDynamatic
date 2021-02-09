@@ -13,6 +13,47 @@ static const char *const write_ports[NB_BRAM_INTERFACE] = {
 static const char *const read_ports[NB_BRAM_INTERFACE] = {
     "_address1", "_ce1", "_we1", "_dout1", "_din1"};
 
+
+auto_error_t hdl_create(hdl_source_t* hdl_source) {
+    CHECK_PARAM(hdl_source);
+
+    memset(hdl_source, 0, sizeof(hdl_source_t));
+
+    auto_error_t err =
+        get_path(hdl_source->dir,
+            "What is the directory of the Dynamatic output (hdl) ?", true);
+    while (err == ERR_IO) {
+        fprintf(stderr,
+            "The path does not exist. Please enter a valid path !\n");
+        err = get_path(hdl_source->dir,
+            "What is the directory of the Dynamatic output (hdl) ?",
+            true);
+    }
+
+    CHECK_CALL(get_name(hdl_source->top_file_name,
+        "What is the name of the top file ?"),
+        "get_name failed !");
+
+    strncpy(hdl_source->top_file_path, hdl_source->dir, MAX_PATH_LENGTH);
+
+    
+    hdl_source->top_file_path[strlen(hdl_source->dir)] = '/';
+    if (strlen(hdl_source->top_file_name) + strlen(hdl_source->dir) + 2 >=
+        MAX_PATH_LENGTH) {
+        fprintf(stderr, "Name too long !\n");
+    }
+    CHECK_COND((size_t)(MAX_PATH_LENGTH - strlen(hdl_source->dir) - 1) >
+        (size_t)MAX_PATH_LENGTH ||
+        MAX_PATH_LENGTH - strlen(hdl_source->dir) - 1 <
+        strlen(hdl_source->top_file_name),
+        ERR_NAME_TOO_LONG, "Name too long !");
+    strncpy(hdl_source->top_file_path + strlen(hdl_source->dir) + 1,
+        hdl_source->top_file_name,
+        MAX_PATH_LENGTH - strlen(hdl_source->dir) - 1);
+    return ERR_NONE;
+}
+
+
 auto_error_t get_simple_info(hdl_source_t *hdl_source, const char *pattern,
                              regmatch_t *match, size_t nmatch) {
     CHECK_PARAM(hdl_source);
@@ -280,46 +321,6 @@ auto_error_t get_params(hdl_source_t *hdl_source) {
         hdl_source->nb_params = param_count;
     }
     regfree(&reg);
-    return ERR_NONE;
-}
-
-auto_error_t hdl_create(hdl_source_t *hdl_source) {
-    CHECK_PARAM(hdl_source);
-
-    memset(hdl_source, 0, sizeof(hdl_source_t));
-
-    char *result = getcwd(hdl_source->exec_path, MAX_PATH_LENGTH);
-    CHECK_COND(result == NULL, ERR_IO, "getcwd error !");
-
-    auto_error_t err =
-        get_path(hdl_source->dir,
-                 "What is the directory of the Dynamatic output (hdl) ?", true);
-    while (err == ERR_IO) {
-        fprintf(stderr,
-                "The path does not exist. Please enter a valid path !\n");
-        err = get_path(hdl_source->dir,
-                       "What is the directory of the Dynamatic output (hdl) ?",
-                       true);
-    }
-
-    CHECK_CALL(get_name(hdl_source->top_file_name,
-                        "What is the name of the top file ?"),
-               "get_name failed !");
-
-    strncpy(hdl_source->top_file_path, hdl_source->dir, MAX_PATH_LENGTH);
-    hdl_source->top_file_path[strlen(hdl_source->dir)] = '/';
-    if (strlen(hdl_source->top_file_name) + strlen(hdl_source->dir) + 2 >=
-        MAX_PATH_LENGTH) {
-        fprintf(stderr, "Name too long !\n");
-    }
-    CHECK_COND((size_t)(MAX_PATH_LENGTH - strlen(hdl_source->dir) - 1) >
-                       (size_t)MAX_PATH_LENGTH ||
-                   MAX_PATH_LENGTH - strlen(hdl_source->dir) - 1 <
-                       strlen(hdl_source->top_file_name),
-               ERR_NAME_TOO_LONG, "Name too long !");
-    strncpy(hdl_source->top_file_path + strlen(hdl_source->dir) + 1,
-            hdl_source->top_file_name,
-            MAX_PATH_LENGTH - strlen(hdl_source->dir) - 1);
     return ERR_NONE;
 }
 
