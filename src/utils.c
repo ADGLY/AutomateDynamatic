@@ -1,5 +1,4 @@
 #define _XOPEN_SOURCE 500
-#include "utils.h"
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
@@ -10,6 +9,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "utils.h"
 #include "regex_wrapper.h"
 
 
@@ -239,7 +239,6 @@ auto_error_t grow_array(void** array, size_t* prev_alloc, size_t elem_size) {
 	*array = new_array;
 
 	return ERR_NONE;
-
 }
 
 void clean_folder() {
@@ -259,27 +258,20 @@ void clean_folder() {
 		return;
 	}
 
-	regex_t reg;
 	regmatch_t match[1];
 
-	int err = regcomp(&reg,
-		"(vivado_[[:digit:]]*\\.backup)|address_adapter|mem_"
-		"interface|write_enb_adapter",
-		REG_EXTENDED);
-	if (err != 0) {
+	auto_error_t err = set_pattern("(vivado_[[:digit:]]*\\.backup)|address_adapter|mem_"
+		"interface|write_enb_adapter");
+	if (err != ERR_NONE) {
 		closedir(d);
-		return;
 	}
 
 	struct dirent* dir;
 	while ((dir = readdir(d)) != NULL) {
-		err = find_pattern_compiled(&reg, dir->d_name, 1, match);
+		err = find_set_pattern(dir->d_name, 1, match);
 		if (err == ERR_NONE) {
 			remove(dir->d_name);
 		}
 	}
-
-	regfree(&reg);
-
 	closedir(d);
 }
