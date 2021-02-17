@@ -3,3 +3,6 @@
 
 auto_error_t find_pattern_compiled(regex_t* reg, const char* str, size_t nmatch, regmatch_t* matches);
 auto_error_t find_pattern(const char* pattern, const char* str, size_t nmatch, regmatch_t* matches);
+
+auto_error_t set_pattern(const char* pattern);
+auto_error_t find_set_pattern(const char* str, size_t nmatch, regmatch_t* matches);

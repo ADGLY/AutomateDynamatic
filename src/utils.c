@@ -230,6 +230,18 @@ int unlink_cb(const char* fpath, const struct stat* sb, int typeflag,
 	return rv;
 }
 
+auto_error_t grow_array(void** array, size_t* prev_alloc, size_t elem_size) {
+
+	*prev_alloc *= 2;
+	void* new_array =
+		realloc(array, *prev_alloc * elem_size);
+	CHECK_COND(new_array == NULL, ERR_MEM, "Failed to realloc !");
+	*array = new_array;
+
+	return ERR_NONE;
+
+}
+
 void clean_folder() {
 	nftw("vivado_hls", unlink_cb, 64, FTW_DEPTH | FTW_PHYS);
 	nftw(".Xil", unlink_cb, 64, FTW_DEPTH | FTW_PHYS);

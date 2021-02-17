@@ -93,3 +93,5 @@ auto_error_t allocate_str_arr(char*** str_arr, uint8_t* nb_allocated);
  *
  **/
 void clean_folder();
+
+auto_error_t grow_array(void** array, size_t * prev_alloc, size_t elem_size);
