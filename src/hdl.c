@@ -76,22 +76,41 @@ uint16_t get_width(regmatch_t* matches, const char* str, uint8_t idx) {
 	return width;
 }
 
-auto_error_t get_arrays(hdl_info_t* hdl_info) {
+typedef enum {
+	ARRAYS, PARAMS
+} list_type_t;
+
+auto_error_t get_ports_list(hdl_info_t* hdl_info, list_type_t type) {
+
 	CHECK_PARAM(hdl_info);
 	CHECK_PARAM(hdl_info->source);
 
 	const char* source_off = hdl_info->source;
 
 	size_t alloc_size = 10;
-	hdl_array_t* arrays = calloc(alloc_size, sizeof(hdl_array_t));
-	CHECK_NULL(arrays, ERR_MEM, "Failed to allocate memory for arrays !");
-	size_t array_count = 0;
+	void* list;
+	if (type == ARRAYS) {
+		list = calloc(alloc_size, sizeof(hdl_array_t));
+	}
+	else if (type == PARAMS) {
+		list = calloc(alloc_size, sizeof(hdl_in_param_t));
+	}
+	CHECK_NULL(list, ERR_MEM, "Failed to allocate memory for arrays !");
+	size_t count = 0;
 
 	size_t end_of_port = hdl_info->end_of_ports_decl;
 
 	regmatch_t matches[3];
-	set_pattern("(\\w+)_din1[[:space:]]*\\:[[:space:]]*in[[:space:]]*std_"
-		"logic_vector[[:space:]]*\\(([[:digit:]]+)");
+
+	if (type == ARRAYS) {
+		set_pattern("(\\w+)_din1[[:space:]]*\\:[[:space:]]*in[[:space:]]*std_"
+			"logic_vector[[:space:]]*\\(([[:digit:]]+)");
+	}
+	else if (type == PARAMS) {
+		set_pattern("(\\w+)_din[[:space:]]*\\:[[:space:]]*in[[:space:]]*std_"
+			"logic_vector[[:space:]]*\\(([[:digit:]]+)");
+	}
+	
 
 
 	auto_error_t err;
@@ -101,37 +120,68 @@ auto_error_t get_arrays(hdl_info_t* hdl_info) {
 		CHECK_COND_DO((size_t)(matches[1].rm_eo - matches[1].rm_so) >=
 			MAX_NAME_LENGTH,
 			ERR_NAME_TOO_LONG, "",
-			free((void*)arrays););
-		strncpy(arrays[array_count].name, source_off + matches[0].rm_so,
-			(size_t)(matches[1].rm_eo - matches[1].rm_so));
+			free((void*)list););
+		if (type == ARRAYS) {
+			strncpy(((hdl_array_t*)list)[count].name, source_off + matches[0].rm_so,
+				(size_t)(matches[1].rm_eo - matches[1].rm_so));
+		}
+		else if (type == PARAMS) {
+			strncpy(((hdl_in_param_t*)list)[count].name, source_off + matches[0].rm_so,
+				(size_t)(matches[1].rm_eo - matches[1].rm_so));
+		}
+		
 
 		uint16_t width = get_width(matches, source_off + matches[2].rm_so, 2);
-		arrays[array_count].width = width;
 
-		array_count++;
+		if (type == ARRAYS) {
+			((hdl_array_t*)(list))[count].width = width;
+		}
+		else if (type == PARAMS) {
+			((hdl_in_param_t*)(list))[count].width = width;
+		}
+
+		count++;
 		source_off += matches[0].rm_eo;
 
 		//Realloc array
-		if (array_count == alloc_size) {
-			CHECK_CALL_DO(grow_array((void**)(&arrays), &alloc_size, sizeof(hdl_array_t)), "grow_array failed !", free(arrays););
+		if (count == alloc_size) {
+			if (type == ARRAYS) {
+				CHECK_CALL_DO(grow_array((void**)(&list), &alloc_size, sizeof(hdl_array_t)), "grow_array failed !", free(list););
+			}
+			else if (type == PARAMS) {
+				CHECK_CALL_DO(grow_array((void**)(&list), &alloc_size, sizeof(hdl_in_param_t)), "grow_array failed !", free(list););
+			}
 		}
 
 	}
 
-	if (array_count != 0) {
-		hdl_array_t* new_arrays =
-			realloc(arrays, array_count * sizeof(hdl_array_t));
-		CHECK_COND_DO(new_arrays == NULL, ERR_MEM, "Failed to realloc !",
+	if (count != 0) {
 
-			free(arrays));
-		hdl_info->arrays = new_arrays;
-		hdl_info->nb_arrays = array_count;
-		hdl_info->end_arrays = (size_t)(source_off - hdl_info->source);
+		if (type == ARRAYS) {
+			hdl_array_t* new_arrays =
+				realloc(list, count * sizeof(hdl_array_t));
+			CHECK_COND_DO(new_arrays == NULL, ERR_MEM, "Failed to realloc !",
+
+				free(list));
+			hdl_info->arrays = new_arrays;
+			hdl_info->nb_arrays = count;
+			hdl_info->end_arrays = (size_t)(source_off - hdl_info->source);
+		}
+		else if (type == PARAMS) {
+			hdl_in_param_t* new_params =
+				realloc(list, count * sizeof(hdl_in_param_t));
+			CHECK_COND_DO(new_params == NULL, ERR_MEM, "Failed to realloc !",
+				free(list));
+			hdl_info->params = new_params;
+			hdl_info->nb_params = count;
+		}
+		
+		
+		
 	}
 
 	return ERR_NONE;
 }
-
 auto_error_t fill_interfaces(bram_interface_t* read_interface,
 	bram_interface_t* write_interface,
 	const char* arr_name) {
@@ -185,62 +235,6 @@ auto_error_t fill_arrays_ports(hdl_info_t* hdl_info) {
 	return ERR_NONE;
 }
 
-
-auto_error_t get_params(hdl_info_t* hdl_info) {
-	CHECK_PARAM(hdl_info);
-	CHECK_PARAM(hdl_info->source);
-
-	const char* source_off = hdl_info->source;
-
-	size_t alloc_size = 10;
-	hdl_in_param_t* params = calloc(alloc_size, sizeof(hdl_array_t));
-	CHECK_NULL(params, ERR_MEM, "Failed to allocate memory for arrays !");
-	size_t param_count = 0;
-
-	size_t end_of_port = hdl_info->end_of_ports_decl;
-
-	regmatch_t matches[3];
-	set_pattern("(\\w+)_din[[:space:]]*\\:[[:space:]]*in[[:space:]]*std_"
-		"logic_vector[[:space:]]*\\(([[:digit:]]+)");
-
-
-	auto_error_t err;
-	while ((size_t)(source_off - hdl_info->source) <= end_of_port &&
-		(err = find_set_pattern(source_off, 3, matches)) != ERR_REGEX) {
-
-		CHECK_COND_DO((size_t)(matches[1].rm_eo - matches[1].rm_so) >=
-			MAX_NAME_LENGTH,
-			ERR_NAME_TOO_LONG, "",
-			free((void*)params););
-		strncpy(params[param_count].name, source_off + matches[0].rm_so,
-			(size_t)(matches[1].rm_eo - matches[1].rm_so));
-
-		uint16_t width = get_width(matches, source_off + matches[2].rm_so, 2);
-		params[param_count].width = width;
-
-		param_count++;
-		source_off += matches[0].rm_eo;
-
-		//Realloc array
-		if (param_count == alloc_size) {
-			CHECK_CALL_DO(grow_array((void**)(&params), &alloc_size, sizeof(hdl_in_param_t)), "grow_array failed !", free(params););
-		}
-
-	}
-
-	if (param_count != 0) {
-		hdl_in_param_t* new_params =
-			realloc(params, param_count * sizeof(hdl_in_param_t));
-		CHECK_COND_DO(new_params == NULL, ERR_MEM, "Failed to realloc !",
-
-			free(params));
-		hdl_info->params = new_params;
-		hdl_info->nb_params = param_count;
-	}
-
-	return ERR_NONE;
-}
-
 auto_error_t get_end_out_width(hdl_info_t* hdl_info) {
 	regmatch_t match[2];
 	CHECK_CALL(find_pattern("end_out[[:space:]]*:[[:space:]]*out[[:space:]]*std_logic_vector[[:space:]]*\\(([[:digit:]]+)", hdl_info->source, 2, match), "find_pattern failed !");
@@ -260,9 +254,11 @@ auto_error_t parse_hdl(hdl_info_t* hdl_info) {
 		"get_end_of_ports_decl failed !");
 	CHECK_CALL(get_end_out_width(hdl_info), "get_end_out_width failed !");
 	CHECK_CALL(get_entity_name(hdl_info), "get_entity_name failed !");
-	CHECK_CALL(get_arrays(hdl_info), "get_arrays failed !");
+	//CHECK_CALL(get_arrays(hdl_info), "get_arrays failed !");
+	CHECK_CALL(get_ports_list(hdl_info, ARRAYS), "get_ports_list failed !");
 	CHECK_CALL(fill_arrays_ports(hdl_info), "fill_arrays_ports failed !");
-	CHECK_CALL(get_params(hdl_info), "get_params failed !");
+	//CHECK_CALL(get_params(hdl_info), "get_params failed !");
+	CHECK_CALL(get_ports_list(hdl_info, PARAMS), "get_ports_list failed !");
 
 	uint16_t max_width = hdl_info->end_out_width;
 	for (size_t i = 0; i < hdl_info->nb_params; ++i) {
