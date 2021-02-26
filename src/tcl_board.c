@@ -6,32 +6,6 @@
 |                                     Zynq | | |
 |---------------------------------------------------------------------------------------------------------------|*/
 
-void memory_connection_automation_zynq(FILE *tcl_script,
-                                       hdl_info_t *hdl_info) {
-
-    for (size_t i = 0; i < hdl_info->nb_arrays; ++i) {
-        hdl_array_t *arr = &(hdl_info->arrays[i]);
-        const char *suffix;
-        if (arr->write && arr->read) {
-            suffix = "read_write";
-        } else if (arr->write) {
-            suffix = "write";
-        } else if (arr->read) {
-            suffix = "read";
-        }
-        fprintf(tcl_script,
-                "apply_bd_automation -rule xilinx.com:bd_rule:axi4 -config");
-        fprintf(tcl_script, " { Clk_master {Auto} Clk_slave {Auto} Clk_xbar "
-                            "{Auto} Master {/processing_system7_0/M_AXI_GP0}");
-        fprintf(tcl_script,
-                " Slave {/axi_bram_ctrl_%s_%s/S_AXI} ddr_seg {Auto} intc_ip "
-                "{New AXI Interconnect} master_apm {0}}",
-                arr->name, suffix);
-        fprintf(tcl_script, "  [get_bd_intf_pins axi_bram_ctrl_%s_%s/S_AXI]\n",
-                arr->name, suffix);
-    }
-}
-
 void zynq_create_PS(FILE *tcl_script, char *board) {
     fprintf(
         tcl_script,
@@ -67,7 +41,7 @@ void zynq_connection_automation(FILE *tcl_script, project_t *project,
     fprintf(tcl_script, "startgroup\n");
     for (uint16_t i = 0; i < project->hdl_info->nb_arrays; ++i) {
         hdl_array_t *arr = &(project->hdl_info->arrays[i]);
-        GET_SUFFIX(arr, suffix);
+        GET_SUFFIX(arr, suffix)
         fprintf(tcl_script,
                 "apply_bd_automation -rule xilinx.com:bd_rule:axi4 ");
         fprintf(tcl_script,

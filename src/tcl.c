@@ -1,25 +1,20 @@
 
 #include "tcl.h"
 #include "tcl_board.h"
+#include "regex_wrapper.h"
 #include <dirent.h>
-#include <errno.h>
 #include <inttypes.h>
-#include <math.h>
-#include <regex.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 
 #define MAX_DYNAMATIC_FILES 8
 
 auto_error_t generate_MAIN_script(project_t *project, const char *part) {
-    CHECK_PARAM(project);
-    CHECK_PARAM(part);
+    CHECK_PARAM(project)
+    CHECK_PARAM(part)
 
     FILE *tcl_script = fopen("generate_project.tcl", "w");
     CHECK_NULL(tcl_script, ERR_IO,
-               "Could not open file : generate_project.tcl");
+               "Could not open file : generate_project.tcl")
     // xc7z045ffg900-2
     if (strcmp(part, "xcvu9p-flgb2104-2-i") == 0) {
         fprintf(tcl_script, "create_project %s %s/%s -part xc7z045ffg900-2\n",
@@ -36,8 +31,8 @@ auto_error_t generate_MAIN_script(project_t *project, const char *part) {
     strncpy(ip_script_path, project->exec_path, MAX_PATH_LENGTH);
 
     CHECK_COND_DO(strlen(ip_script_path) + strlen("/generate_axi_ip.tcl") + 1 >=
-                      MAX_PATH_LENGTH,
-                  ERR_NAME_TOO_LONG, "", fclose(tcl_script););
+                  MAX_PATH_LENGTH,
+                  ERR_NAME_TOO_LONG, "", fclose(tcl_script);)
 
     strncpy(ip_script_path + strlen(ip_script_path), "/generate_axi_ip.tcl",
             MAX_PATH_LENGTH - strlen(ip_script_path));
@@ -50,14 +45,14 @@ auto_error_t generate_MAIN_script(project_t *project, const char *part) {
 }
 
 auto_error_t generate_AXI_script(project_t *project, axi_ip_t *axi_ip) {
-    CHECK_PARAM(project);
-    CHECK_PARAM(axi_ip);
-    CHECK_PARAM(project->hdl_info);
+    CHECK_PARAM(project)
+    CHECK_PARAM(axi_ip)
+    CHECK_PARAM(project->hdl_info)
 
     strncpy(axi_ip->interface_name, "CSR", MAX_NAME_LENGTH);
 
     FILE *tcl_script = fopen("generate_axi_ip.tcl", "w");
-    CHECK_NULL(tcl_script, ERR_IO, "Could not open file : generate_axi_ip.tcl");
+    CHECK_NULL(tcl_script, ERR_IO, "Could not open file : generate_axi_ip.tcl")
 
     fprintf(tcl_script, "create_peripheral user.org user %s 1.0 -dir %s\n",
             axi_ip->name, axi_ip->path);
@@ -87,12 +82,10 @@ auto_error_t generate_AXI_script(project_t *project, axi_ip_t *axi_ip) {
             axi_ip->name, axi_ip->path, axi_ip->path, axi_ip->name);
     fprintf(tcl_script, "update_compile_order -fileset sources_1\n");
 
-    regex_t reg;
     regmatch_t match[1];
 
-    int err = regcomp(&reg, "\\w+.(vhd|v)", REG_EXTENDED);
-    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg compile error !",
-                  fclose(tcl_script););
+
+    CHECK_CALL(set_pattern("\\w+.(vhd|v)", 1), "set_pattern failed !")
 
     char files_to_add[MAX_DYNAMATIC_FILES][MAX_NAME_LENGTH];
     memset(files_to_add, 0, sizeof(files_to_add));
@@ -100,7 +93,7 @@ auto_error_t generate_AXI_script(project_t *project, axi_ip_t *axi_ip) {
     DIR *d;
     d = opendir(project->hdl_info->dir);
     CHECK_COND_DO(d == NULL, ERR_IO, "Could not open dir !",
-                  fclose(tcl_script););
+                  fclose(tcl_script);)
 
     int nb_files = 0;
 
@@ -109,14 +102,13 @@ auto_error_t generate_AXI_script(project_t *project, axi_ip_t *axi_ip) {
         if (nb_files == MAX_DYNAMATIC_FILES) {
             fprintf(stderr, "Too many files !\n");
         }
-        err = regexec(&reg, dir->d_name, 1, (regmatch_t *)match, 0);
-        if (err == 0) {
-            CHECK_LENGTH(strlen(dir->d_name), MAX_NAME_LENGTH);
+        auto_error_t err = find_set_pattern(dir->d_name, 1, match, 1);
+        if (err == ERR_NONE) {
+            CHECK_LENGTH(strlen(dir->d_name), MAX_NAME_LENGTH)
             strncpy(files_to_add[nb_files++], dir->d_name, MAX_NAME_LENGTH);
         }
     }
     closedir(d);
-    regfree(&reg);
     fprintf(tcl_script, "add_files -norecurse -copy_to %s/%s_1.0/src {",
             axi_ip->path, axi_ip->name);
 
@@ -145,7 +137,7 @@ auto_error_t generate_AXI_script(project_t *project, axi_ip_t *axi_ip) {
     return ERR_NONE;
 }
 
-auto_error_t generate_adapters(FILE *tcl_script, const char* exec_path,
+auto_error_t generate_adapters(FILE *tcl_script, const char *exec_path,
                                hdl_array_t *array, const char *suffix,
                                size_t array_size) {
 
@@ -154,16 +146,16 @@ auto_error_t generate_adapters(FILE *tcl_script, const char* exec_path,
     const char *hdl_ext = ".vhd";
     int written = snprintf(write_enb_filename, MAX_NAME_LENGTH,
                            "write_enb_adapter%s%s", suffix, hdl_ext);
-    CHECK_LENGTH(written, MAX_NAME_LENGTH);
+    CHECK_LENGTH(written, MAX_NAME_LENGTH)
 
     FILE *write_enb_adapter = fopen(write_enb_filename, "w");
     CHECK_NULL(write_enb_adapter, ERR_IO,
-               "Could not open file : write_enb_adapter.vhd");
+               "Could not open file : write_enb_adapter.vhd")
 
     fprintf(write_enb_adapter, "library IEEE;\n");
     fprintf(write_enb_adapter, "use IEEE.STD_LOGIC_1164.ALL;\n\n");
 
-    uint16_t nb_bytes_in_width = (uint16_t)(array->width >> 3);
+    uint16_t nb_bytes_in_width = (uint16_t) (array->width >> 3);
     int msb_axi = 64 - __builtin_clzll(array_size) - 2;
 
     size_t nb_elem = array_size / (array->width >> 3);
@@ -199,10 +191,10 @@ auto_error_t generate_adapters(FILE *tcl_script, const char* exec_path,
     memset(address_adapter_filename, 0, sizeof(char) * MAX_NAME_LENGTH);
     written = snprintf(address_adapter_filename, MAX_NAME_LENGTH,
                        "address_adapter%s%s", suffix, hdl_ext);
-    CHECK_LENGTH(written, MAX_NAME_LENGTH);
+    CHECK_LENGTH(written, MAX_NAME_LENGTH)
     FILE *address_adapter = fopen(address_adapter_filename, "w");
     CHECK_NULL(address_adapter, ERR_IO,
-               "Could not open file : address_adapter.vhd");
+               "Could not open file : address_adapter.vhd")
 
     fprintf(address_adapter, "library IEEE;\n");
     fprintf(address_adapter, "use IEEE.STD_LOGIC_1164.ALL;\n\n");
@@ -245,8 +237,8 @@ void create_bram(FILE *tcl_script, const char *name, const char *suffix,
     fprintf(tcl_script, "endgroup\n");
 
     fprintf(
-        tcl_script,
-        "set_property -dict [list CONFIG.Memory_Type {True_Dual_Port_RAM} ");
+            tcl_script,
+            "set_property -dict [list CONFIG.Memory_Type {True_Dual_Port_RAM} ");
     fprintf(tcl_script, "CONFIG.Enable_32bit_Address {false} "
                         "CONFIG.Use_Byte_Write_Enable {false} ");
     fprintf(tcl_script,
@@ -281,10 +273,10 @@ void create_axi_bram_controller(FILE *tcl_script, const char *name,
     fprintf(tcl_script, "endgroup\n");
 
     fprintf(
-        tcl_script,
-        "set_property -dict [list CONFIG.SINGLE_PORT_BRAM {1} CONFIG.ECC_TYPE "
-        "{0}  CONFIG.DATA_WIDTH {%zu} CONFIG.PROTOCOL {AXI4}] ",
-        array_width);
+            tcl_script,
+            "set_property -dict [list CONFIG.SINGLE_PORT_BRAM {1} CONFIG.ECC_TYPE "
+            "{0}  CONFIG.DATA_WIDTH {%zu} CONFIG.PROTOCOL {AXI4}] ",
+            array_width);
     fprintf(tcl_script, "[get_bd_cells axi_bram_ctrl_%s_%s]\n", name, suffix);
 }
 
@@ -294,11 +286,11 @@ auto_error_t generate_memory_interface(FILE *tcl_script, axi_ip_t *axi_ip,
                                        size_t array_size,
                                        const char *adapter_suffix,
                                        size_t array_width) {
-    CHECK_PARAM(tcl_script);
-    CHECK_PARAM(axi_ip);
-    CHECK_PARAM(name);
-    CHECK_PARAM(suffix);
-    CHECK_PARAM(interface);
+    CHECK_PARAM(tcl_script)
+    CHECK_PARAM(axi_ip)
+    CHECK_PARAM(name)
+    CHECK_PARAM(suffix)
+    CHECK_PARAM(interface)
 
     create_bram(tcl_script, name, suffix, array_size, array_width);
 
@@ -374,15 +366,15 @@ auto_error_t create_mem_interface(size_t array_size,
                                   size_t array_width) {
 
     char filename[MAX_NAME_LENGTH];
-    memset(filename, 0, sizeof(MAX_NAME_LENGTH) * sizeof(char));
+    memset(filename, 0, MAX_NAME_LENGTH * sizeof(char));
 
     int written = snprintf(filename, MAX_NAME_LENGTH, "mem_interface%s.vhd",
                            filename_suffix);
-    CHECK_LENGTH(written, MAX_NAME_LENGTH);
+    CHECK_LENGTH(written, MAX_NAME_LENGTH)
 
     FILE *hdl_mem_interface = fopen(filename, "w");
     CHECK_NULL(hdl_mem_interface, ERR_IO,
-               "Couldn't create file mem_interface !");
+               "Couldn't create file mem_interface !")
 
     *strrchr(filename, '.') = '\0';
 
@@ -390,7 +382,7 @@ auto_error_t create_mem_interface(size_t array_size,
     fprintf(hdl_mem_interface, "use IEEE.STD_LOGIC_1164.ALL;\n");
     fprintf(hdl_mem_interface, "entity mem_interface%s is\n", filename_suffix);
 
-    uint16_t nb_bytes_in_width = (uint16_t)(array_width >> 3);
+    uint16_t nb_bytes_in_width = (uint16_t) (array_width >> 3);
     int msb_axi = 64 - __builtin_clzll(array_size) - 2;
 
     size_t nb_elem = array_size / (array_width >> 3);
@@ -463,8 +455,8 @@ auto_error_t create_mem_interface(size_t array_size,
             msb_bram);
     fprintf(hdl_mem_interface, "\tsignal axi_adapted_wen : std_logic;\n");
     fprintf(
-        hdl_mem_interface,
-        "\tsignal axi_adapted_addr_to_32 : std_logic_vector(31 downto 0);\n");
+            hdl_mem_interface,
+            "\tsignal axi_adapted_addr_to_32 : std_logic_vector(31 downto 0);\n");
 
     fprintf(hdl_mem_interface, "\n");
 
@@ -493,8 +485,8 @@ auto_error_t create_mem_interface(size_t array_size,
     fprintf(hdl_mem_interface, "\n");
 
     fprintf(
-        hdl_mem_interface,
-        "\tmem_bram_addr <= axi_adapted_addr_to_32 when dyn_bram_en = '0' ");
+            hdl_mem_interface,
+            "\tmem_bram_addr <= axi_adapted_addr_to_32 when dyn_bram_en = '0' ");
     fprintf(hdl_mem_interface,
             "or (axi_adapted_wen = '1' and axi_bram_en = '1') else\n");
     fprintf(hdl_mem_interface, "\t\t\t\t\tdyn_bram_addr;\n");
@@ -532,14 +524,14 @@ auto_error_t create_mem_interface(size_t array_size,
 }
 
 auto_error_t generate_memory(FILE *tcl_script, hdl_array_t *arr,
-                             axi_ip_t *axi_ip, const char* exec_path,
+                             axi_ip_t *axi_ip, const char *exec_path,
                              size_t array_size) {
-    CHECK_PARAM(tcl_script);
-    CHECK_PARAM(arr);
-    CHECK_PARAM(axi_ip);
+    CHECK_PARAM(tcl_script)
+    CHECK_PARAM(arr)
+    CHECK_PARAM(axi_ip)
 
     char filename_suffix[MAX_NAME_LENGTH];
-    memset(filename_suffix, 0, sizeof(MAX_NAME_LENGTH) * sizeof(char));
+    memset(filename_suffix, 0, MAX_NAME_LENGTH * sizeof(char));
 
     if (arr->read && arr->write) {
 
@@ -578,16 +570,16 @@ auto_error_t generate_memory(FILE *tcl_script, hdl_array_t *arr,
 
         int written = snprintf(filename_suffix, MAX_NAME_LENGTH, "_%s_%s",
                                arr->name, "read_write");
-        CHECK_LENGTH(written, MAX_NAME_LENGTH);
+        CHECK_LENGTH(written, MAX_NAME_LENGTH)
 
         CHECK_CALL_DO(generate_adapters(tcl_script, exec_path, arr, filename_suffix,
                                         array_size),
-                      "generate_adapters failed !", fclose(tcl_script););
+                      "generate_adapters failed !", fclose(tcl_script);)
 
         // Read
         CHECK_CALL_DO(
-            create_mem_interface(array_size, filename_suffix, arr->width),
-            "create_mem_interface failed !", fclose(tcl_script););
+                create_mem_interface(array_size, filename_suffix, arr->width),
+                "create_mem_interface failed !", fclose(tcl_script);)
 
         interface = &(arr->read_ports);
 
@@ -611,15 +603,15 @@ auto_error_t generate_memory(FILE *tcl_script, hdl_array_t *arr,
                 "[get_bd_pins blk_mem_gen_%s_%s/clka]\n",
                 arr->name, suffix, name, suffix);
         fprintf(
-            tcl_script,
-            "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_wrdata_a] "
-            "[get_bd_pins mem_interface%s_0/axi_bram_wrdata]\n",
-            arr->name, suffix, filename_suffix);
+                tcl_script,
+                "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_wrdata_a] "
+                "[get_bd_pins mem_interface%s_0/axi_bram_wrdata]\n",
+                arr->name, suffix, filename_suffix);
         fprintf(
-            tcl_script,
-            "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_rddata_a] "
-            "[get_bd_pins mem_interface%s_0/axi_bram_rddata]\n",
-            arr->name, suffix, filename_suffix);
+                tcl_script,
+                "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_rddata_a] "
+                "[get_bd_pins mem_interface%s_0/axi_bram_rddata]\n",
+                arr->name, suffix, filename_suffix);
         fprintf(tcl_script,
                 "connect_bd_net [get_bd_pins axi_bram_ctrl_%s_%s/bram_en_a] "
                 "[get_bd_pins mem_interface%s_0/axi_bram_en]\n",
@@ -650,15 +642,15 @@ auto_error_t generate_memory(FILE *tcl_script, hdl_array_t *arr,
                 "[get_bd_pins blk_mem_gen_%s_%s/addra]\n",
                 filename_suffix, arr->name, suffix);
         fprintf(
-            tcl_script,
-            "connect_bd_net [get_bd_pins mem_interface%s_0/mem_bram_wrdata] "
-            "[get_bd_pins blk_mem_gen_%s_%s/dina]\n",
-            filename_suffix, arr->name, suffix);
+                tcl_script,
+                "connect_bd_net [get_bd_pins mem_interface%s_0/mem_bram_wrdata] "
+                "[get_bd_pins blk_mem_gen_%s_%s/dina]\n",
+                filename_suffix, arr->name, suffix);
         fprintf(
-            tcl_script,
-            "connect_bd_net [get_bd_pins mem_interface%s_0/mem_bram_rddata] "
-            "[get_bd_pins blk_mem_gen_%s_%s/douta]\n",
-            filename_suffix, arr->name, suffix);
+                tcl_script,
+                "connect_bd_net [get_bd_pins mem_interface%s_0/mem_bram_rddata] "
+                "[get_bd_pins blk_mem_gen_%s_%s/douta]\n",
+                filename_suffix, arr->name, suffix);
         fprintf(tcl_script,
                 "connect_bd_net [get_bd_pins mem_interface%s_0/mem_bram_en] "
                 "[get_bd_pins blk_mem_gen_%s_%s/ena]\n",
@@ -670,42 +662,42 @@ auto_error_t generate_memory(FILE *tcl_script, hdl_array_t *arr,
     } else if (arr->write) {
         int written = snprintf(filename_suffix, MAX_NAME_LENGTH, "_%s_%s",
                                arr->name, "write");
-        CHECK_LENGTH(written, MAX_NAME_LENGTH);
+        CHECK_LENGTH(written, MAX_NAME_LENGTH)
 
         CHECK_CALL_DO(generate_adapters(tcl_script, exec_path, arr, filename_suffix,
                                         array_size),
-                      "generate_adapters failed !", fclose(tcl_script););
+                      "generate_adapters failed !", fclose(tcl_script);)
         CHECK_CALL(generate_memory_interface(tcl_script, axi_ip, arr->name,
                                              "write", &(arr->write_ports),
                                              array_size, filename_suffix,
                                              arr->width),
-                   "generate_memory_interface failed !");
+                   "generate_memory_interface failed !")
     } else if (arr->read) {
         int written = snprintf(filename_suffix, MAX_NAME_LENGTH, "_%s_%s",
                                arr->name, "read");
-        CHECK_LENGTH(written, MAX_NAME_LENGTH);
+        CHECK_LENGTH(written, MAX_NAME_LENGTH)
 
         CHECK_CALL_DO(generate_adapters(tcl_script, exec_path, arr, filename_suffix,
                                         array_size),
-                      "generate_adapters failed !", fclose(tcl_script););
+                      "generate_adapters failed !", fclose(tcl_script);)
         CHECK_CALL(generate_memory_interface(tcl_script, axi_ip, arr->name,
                                              "read", &(arr->read_ports),
                                              array_size, filename_suffix,
                                              arr->width),
-                   "generate_memory_interface failed !");
+                   "generate_memory_interface failed !")
     }
     return ERR_NONE;
 }
 
 auto_error_t generate_final_script(project_t *project, vivado_hls_t *hls,
                                    axi_ip_t *axi_ip, const char *part) {
-    CHECK_PARAM(project);
-    CHECK_PARAM(project->hdl_info);
-    CHECK_PARAM(project->hdl_info->arrays);
-    CHECK_PARAM(hls);
+    CHECK_PARAM(project)
+    CHECK_PARAM(project->hdl_info)
+    CHECK_PARAM(project->hdl_info->arrays)
+    CHECK_PARAM(hls)
 
     FILE *tcl_script = fopen("final_script.tcl", "w");
-    CHECK_NULL(tcl_script, ERR_IO, "Could not open file : final_script.tcl");
+    CHECK_NULL(tcl_script, ERR_IO, "Could not open file : final_script.tcl")
 
     fprintf(tcl_script, "open_project %s/edit_%s_v1_0.xpr\n", axi_ip->path,
             axi_ip->name);
@@ -777,6 +769,7 @@ auto_error_t generate_final_script(project_t *project, vivado_hls_t *hls,
             project->name, project->name);
     fprintf(tcl_script, "update_ip_catalog -rebuild\n");
 
+    //Not working
     if (strcmp(part, "xcvu9p-flgb2104-2-i") == 0) {
         fprintf(tcl_script, "aws::make_ipi\n");
         fprintf(tcl_script, "set_property ip_repo_paths [concat [get_property "
@@ -796,8 +789,8 @@ auto_error_t generate_final_script(project_t *project, vivado_hls_t *hls,
             axi_ip->name, axi_ip->name);
     fprintf(tcl_script, "endgroup\n");
 
-    size_t array_size = (size_t)(project->array_size);
-    size_t ind_to_num = 0;
+    size_t array_size = (size_t) (project->array_size);
+    size_t ind_to_num;
     char ind = project->array_size_ind;
     if (ind == 'K') {
         ind_to_num = 10;
@@ -812,7 +805,7 @@ auto_error_t generate_final_script(project_t *project, vivado_hls_t *hls,
         CHECK_CALL_DO(generate_memory(tcl_script,
                                       &(project->hdl_info->arrays[i]), axi_ip,
                                       project->exec_path, array_size),
-                      "generate_memory failed !", fclose(tcl_script););
+                      "generate_memory failed !", fclose(tcl_script);)
     }
 
     script_func_t script_func = select_part_script(part);
@@ -829,10 +822,10 @@ auto_error_t generate_final_script(project_t *project, vivado_hls_t *hls,
 }
 
 auto_error_t generate_hls_script(vivado_hls_t *hls, const char *part) {
-    CHECK_PARAM(hls);
+    CHECK_PARAM(hls)
 
     FILE *tcl_script = fopen("hls_script.tcl", "w");
-    CHECK_NULL(tcl_script, ERR_IO, "Could not open file : hls_script.tcl");
+    CHECK_NULL(tcl_script, ERR_IO, "Could not open file : hls_script.tcl")
 
     fprintf(tcl_script, "open_project -reset vivado_hls\n");
     fprintf(tcl_script, "set_top %s\n", hls->fun_name);
@@ -845,7 +838,7 @@ auto_error_t generate_hls_script(vivado_hls_t *hls, const char *part) {
     char *last_slash = strrchr(dir_path, '/');
     CHECK_COND_DO(last_slash == NULL, ERR_NULL,
                   "Wrong path for dir of source C/C++ file !",
-                  fclose(tcl_script););
+                  fclose(tcl_script);)
     *last_slash = '\0';
 
     char main_name[MAX_NAME_LENGTH];
@@ -859,7 +852,7 @@ auto_error_t generate_hls_script(vivado_hls_t *hls, const char *part) {
         start_cpy = last_slash + 1;
     }
     CHECK_COND(strlen(start_cpy) > MAX_NAME_LENGTH, ERR_NAME_TOO_LONG,
-               "Name too long !");
+               "Name too long !")
     strncpy(main_name, start_cpy, MAX_NAME_LENGTH);
     *strrchr(main_name, '.') = '\0';
     char *name_part = strrchr(main_name, '_');
@@ -873,51 +866,42 @@ auto_error_t generate_hls_script(vivado_hls_t *hls, const char *part) {
     strncpy(full_cpp_name, start_cpy, MAX_NAME_LENGTH);
 
     char cpp_name_pattern[MAX_NAME_LENGTH];
-    memset(cpp_name_pattern, 0, sizeof(MAX_NAME_LENGTH) * sizeof(char));
+    memset(cpp_name_pattern, 0, MAX_NAME_LENGTH * sizeof(char));
 
     snprintf(cpp_name_pattern, MAX_NAME_LENGTH, "%s", main_name);
 
-    regex_t reg_cpp_name;
-    int err = regcomp(&reg_cpp_name, cpp_name_pattern, REG_EXTENDED);
-    CHECK_COND(err != 0, ERR_REGEX, "Reg compilation failed !");
+    CHECK_CALL(set_pattern(cpp_name_pattern, 1), "set_pattern failed !")
 
-    regex_t reg;
     regmatch_t match[1];
 
-    err = regcomp(&reg, "\\w+.(cpp|h|c)", REG_EXTENDED);
-    CHECK_COND_DO(err != 0, ERR_REGEX, "Reg compile error !",
-                  fclose(tcl_script);
-                  regfree(&reg_cpp_name););
+    CHECK_CALL(set_pattern("\\w+.(cpp|h|c)", 2), "set_pattern failed !")
 
     DIR *d;
     d = opendir(dir_path);
-    CHECK_COND_DO(d == NULL, ERR_IO, "Could not open dir !", regfree(&reg);
-                  fclose(tcl_script); regfree(&reg_cpp_name););
+    CHECK_COND_DO(d == NULL, ERR_IO, "Could not open dir !",
+                  fclose(tcl_script);)
 
     char **files_to_add;
     uint8_t count = 0;
     uint8_t last = 0;
     CHECK_CALL_DO(allocate_str_arr(&files_to_add, &last),
-                  "allocate_str_arr failed !", fclose(tcl_script);
-                  regfree(&reg_cpp_name); closedir(d); regfree(&reg););
+                  "allocate_str_arr failed !", fclose(tcl_script);closedir(d);)
 
     struct dirent *dir;
     while ((dir = readdir(d)) != NULL) {
-        err = regexec(&reg, dir->d_name, 1, (regmatch_t *)match, 0);
+        auto_error_t err = find_set_pattern(dir->d_name, 1, match, 2);
         if (count == last) {
             CHECK_CALL_DO(allocate_str_arr(&files_to_add, &last),
                           "allocate_str_arr failed !", fclose(tcl_script);
-                          regfree(&reg_cpp_name); regfree(&reg); closedir(d);
-                          free_str_arr(files_to_add, last););
+                                  closedir(d);
+                                  free_str_arr(files_to_add, last);)
         }
-        if (err == 0) {
-            err = regexec(&reg_cpp_name, dir->d_name, 1, match, 0);
-            if (err != 0) {
-                if (err == REG_NOMATCH) {
-                    CHECK_LENGTH(strlen(dir->d_name), MAX_NAME_LENGTH);
-                    strncpy(files_to_add[count++], dir->d_name,
-                            MAX_NAME_LENGTH);
-                }
+        if (err == ERR_NONE) {
+            auto_error_t cpp_err = find_set_pattern(dir->d_name, 1, match, 1);
+            if (cpp_err != ERR_NONE) {
+                CHECK_LENGTH(strlen(dir->d_name), MAX_NAME_LENGTH)
+                strncpy(files_to_add[count++], dir->d_name,
+                        MAX_NAME_LENGTH);
             } else {
                 if (strcmp(dir->d_name, full_cpp_name) == 0 ||
                     strcmp(".h", strrchr(dir->d_name, '.')) == 0) {
@@ -928,9 +912,6 @@ auto_error_t generate_hls_script(vivado_hls_t *hls, const char *part) {
         }
     }
     closedir(d);
-
-    regfree(&reg);
-    regfree(&reg_cpp_name);
 
     // Files to
     // add----------------------------------------------------------------------------
