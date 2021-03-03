@@ -61,7 +61,7 @@ auto_error_t launch_hls_script();
  * Reads the output of VivadoHLS and retrieves informations for floating point
  *operators
  **/
-auto_error_t resolve_float_ops();
+auto_error_t resolve_float_ops(vivado_hls_t *hls, hdl_info_t *hdl_info);
 
 /**
  * Updates the arithmetic_units.vhd file so that the floating point compoennts
