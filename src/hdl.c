@@ -170,6 +170,9 @@ auto_error_t get_ports_list(hdl_info_t *hdl_info, list_type_t type) {
             hdl_info->nb_params = count;
         }
     }
+    else {
+        free(list);
+    }
 
     return ERR_NONE;
 }

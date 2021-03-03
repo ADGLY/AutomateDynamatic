@@ -18,3 +18,5 @@ automate_dynamatic_app
 .vs/*
 CMakeSettings.json
 out/*
+.idea/*
+cmake-build-debug/*

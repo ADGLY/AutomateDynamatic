@@ -64,3 +64,14 @@ auto_error_t find_pattern(const char* pattern, const char* str, size_t nmatch, r
 
 	return ERR_NONE;
 }
+
+void free_regs() {
+   if(is_first_pattern_set) {
+        regfree(&s_reg1);
+        is_first_pattern_set = false;
+    }
+    if(is_snd_pattern_set) {
+        regfree(&s_reg2);
+        is_first_pattern_set = false;
+    }
+}
